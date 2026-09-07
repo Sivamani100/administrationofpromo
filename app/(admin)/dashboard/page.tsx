@@ -411,7 +411,8 @@ export default function DashboardPage() {
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie data={categoryData} innerRadius={0} outerRadius={75} dataKey="value" stroke="#fff" strokeWidth={2}
-                          label={({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
+                          label={(props: any) => {
+                            const { cx, cy, midAngle, innerRadius, outerRadius, percent } = props;
                             const radius = innerRadius + (outerRadius - innerRadius) * 0.6;
                             const x = cx + radius * Math.cos(-midAngle * Math.PI / 180);
                             const y = cy + radius * Math.sin(-midAngle * Math.PI / 180);

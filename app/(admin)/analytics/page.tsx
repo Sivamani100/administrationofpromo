@@ -791,7 +791,7 @@ export default function AnalyticsPage() {
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.03)" />
                   <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-3)' }} dy={10} />
                   <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-3)' }} tickFormatter={val => `$${val}`} />
-                  <Tooltip contentStyle={tooltipStyle} cursor={{ stroke: 'rgba(0,0,0,0.05)', strokeWidth: 2 }} formatter={(val: number) => [`$${val}`, 'Volume']} />
+                  <Tooltip contentStyle={tooltipStyle} cursor={{ stroke: 'rgba(0,0,0,0.05)', strokeWidth: 2 }} formatter={(val: any) => [`$${val}`, 'Volume']} />
                   <Area type="monotone" dataKey="volume" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorFinancial)" activeDot={{ r: 6, fill: '#10b981', stroke: '#fff', strokeWidth: 2 }} />
                 </AreaChart>
               </ResponsiveContainer>

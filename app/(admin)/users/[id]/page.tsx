@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase'
 import { notFound } from 'next/navigation'
 import { 
   User, Mail, Calendar, Shield, Activity, MapPin, 
-  AlertTriangle, History, Instagram, Youtube, Ban, Link as LinkIcon
+  AlertTriangle, History, Ban, Link as LinkIcon
 } from 'lucide-react'
 import Link from 'next/link'
 import UserActions from './UserActions'
