@@ -22,11 +22,20 @@ export default function UserLogsPage() {
   const [logs, setLogs]       = useState<UserLog[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch]   = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [page, setPage]       = useState(1)
   const [total, setTotal]     = useState(0)
   const [stats, setStats]     = useState({ total: 0, errors: 0, avgMs: 0 })
 
-  const load = useCallback(async () => {
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search)
+      setPage(1)
+    }, 300)
+    return () => clearTimeout(handler)
+  }, [search])
+
+  const load = useCallback(async (abortSignal?: AbortSignal) => {
     setLoading(true)
     const sb = createClient()
 
@@ -34,6 +43,8 @@ export default function UserLogsPage() {
       sb.from('api_usage').select('*', { count: 'exact', head: true }),
       sb.from('api_usage').select('*', { count: 'exact', head: true }).gte('status_code', 400),
     ])
+
+    if (abortSignal?.aborted) return
 
     // Get avg response time from a sample
     const { data: sample } = await sb.from('api_usage').select('response_ms').limit(200)
@@ -44,15 +55,22 @@ export default function UserLogsPage() {
     setStats({ total: allRes.count || 0, errors: errorRes.count || 0, avgMs })
 
     let q = sb.from('api_usage').select('*, profiles:user_id(display_name)', { count: 'exact' })
-    if (search) q = q.ilike('endpoint', `%${search}%`)
+    if (debouncedSearch) q = q.ilike('endpoint', `%${debouncedSearch}%`)
     q = q.order('created_at', { ascending: false })
          .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1)
     const { data, count } = await q
+    
+    if (abortSignal?.aborted) return
+    
     if (data) { setLogs(data as UserLog[]); setTotal(count ?? 0) }
     setLoading(false)
-  }, [search, page])
+  }, [debouncedSearch, page])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => { 
+    const controller = new AbortController()
+    load(controller.signal)
+    return () => controller.abort()
+  }, [load])
 
   const totalPages = Math.ceil(total / PAGE_SIZE)
 

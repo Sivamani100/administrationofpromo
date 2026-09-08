@@ -11,8 +11,19 @@ type Campaign = {
   status: string
   brand_id: string
   created_at: string
+  updated_at?: string
   budget_range?: string
   category?: string
+  cover_image_url?: string
+  niche_tags?: string[]
+  platform_requirements?: string[]
+  deliverables?: string[]
+  preferred_location?: string
+  openings?: number
+  min_followers?: number
+  timeline?: string
+  application_deadline?: string
+  languages?: string[]
   profiles?: { display_name: string }
 }
 
@@ -218,9 +229,9 @@ export default function CampaignsPage() {
                             </td>
                             <td>
                               <div className="td-actions" style={{ display: 'flex', gap: '8px' }}>
-                                <Link href={`/campaigns/${c.id}`} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12.5px', gap: '6px', borderRadius: '8px' }}>
+                                <button onClick={() => setModal({ c, action: 'view' })} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12.5px', gap: '6px', borderRadius: '8px' }}>
                                   <Eye size={14} /> View
-                                </Link>
+                                </button>
                                 {c.status === 'suspended'
                                   ? <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12.5px', gap: '6px', borderRadius: '8px' }}
                                       onClick={() => setModal({ c, action: 'reactivate' })}>
@@ -255,23 +266,128 @@ export default function CampaignsPage() {
 
           {modal && (
             <div className="modal-overlay" onClick={() => setModal(null)}>
-              <div className="modal" onClick={e => e.stopPropagation()}>
+              <div className={`modal ${modal.action === 'view' ? 'modal-lg' : ''}`} onClick={e => e.stopPropagation()} style={modal.action === 'view' ? { maxWidth: '600px', width: '90%' } : {}}>
                 <div className="modal-header">
-                  <span className="modal-title">{modal.action === 'suspend' ? 'Suspend Campaign' : 'Reactivate Campaign'}</span>
+                  <span className="modal-title">
+                    {modal.action === 'view' ? 'Campaign Details' : modal.action === 'suspend' ? 'Suspend Campaign' : 'Reactivate Campaign'}
+                  </span>
                   <button className="modal-close" onClick={() => setModal(null)}>✕</button>
                 </div>
-                <div className="modal-body">
-                  Confirm <strong>{modal.action}</strong> for: <strong>{modal.c.title}</strong>?
+                <div className="modal-body" style={modal.action === 'view' ? { maxHeight: '70vh', overflowY: 'auto' } : {}}>
+                  {modal.action === 'view' ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                      {modal.c.cover_image_url && (
+                        <div style={{ width: '100%', height: '200px', borderRadius: '8px', overflow: 'hidden', backgroundColor: 'var(--bg-3)' }}>
+                          <img src={modal.c.cover_image_url} alt={modal.c.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        </div>
+                      )}
+                      <div>
+                        <h2 style={{ fontSize: '20px', fontWeight: 700, margin: '0 0 4px 0' }}>{modal.c.title}</h2>
+                        <span className="badge badge-blue">{modal.c.category || 'General'}</span>
+                        {modal.c.status && <span style={{ marginLeft: '8px' }}>{statusBadge(modal.c)}</span>}
+                      </div>
+                      <div>
+                        <h3 style={{ fontSize: '14px', fontWeight: 600, margin: '0 0 8px 0', color: 'var(--text-2)' }}>Description</h3>
+                        <p style={{ margin: 0, fontSize: '14px', color: 'var(--text-1)', whiteSpace: 'pre-wrap' }}>{modal.c.description}</p>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', background: 'var(--bg-2)', padding: '16px', borderRadius: '8px' }}>
+                        <div>
+                          <span style={{ fontSize: '12px', color: 'var(--text-3)', display: 'block', marginBottom: '4px' }}>Campaign ID</span>
+                          <strong style={{ fontSize: '13px', wordBreak: 'break-all' }}>{modal.c.id}</strong>
+                        </div>
+                        <div>
+                          <span style={{ fontSize: '12px', color: 'var(--text-3)', display: 'block', marginBottom: '4px' }}>Owner</span>
+                          <strong style={{ fontSize: '13px' }}>{modal.c.profiles?.display_name || 'Anonymous'}</strong>
+                        </div>
+                        <div>
+                          <span style={{ fontSize: '12px', color: 'var(--text-3)', display: 'block', marginBottom: '4px' }}>Budget Range</span>
+                          <strong style={{ fontSize: '13px' }}>{modal.c.budget_range || 'Negotiable'}</strong>
+                        </div>
+                        <div>
+                          <span style={{ fontSize: '12px', color: 'var(--text-3)', display: 'block', marginBottom: '4px' }}>Preferred Location</span>
+                          <strong style={{ fontSize: '13px' }}>{modal.c.preferred_location || 'Anywhere'}</strong>
+                        </div>
+                        <div>
+                          <span style={{ fontSize: '12px', color: 'var(--text-3)', display: 'block', marginBottom: '4px' }}>Openings</span>
+                          <strong style={{ fontSize: '13px' }}>{modal.c.openings || 'Not specified'}</strong>
+                        </div>
+                        <div>
+                          <span style={{ fontSize: '12px', color: 'var(--text-3)', display: 'block', marginBottom: '4px' }}>Min Followers</span>
+                          <strong style={{ fontSize: '13px' }}>{modal.c.min_followers || '0'}</strong>
+                        </div>
+                        <div>
+                          <span style={{ fontSize: '12px', color: 'var(--text-3)', display: 'block', marginBottom: '4px' }}>Timeline</span>
+                          <strong style={{ fontSize: '13px' }}>{modal.c.timeline || 'Not specified'}</strong>
+                        </div>
+                        <div>
+                          <span style={{ fontSize: '12px', color: 'var(--text-3)', display: 'block', marginBottom: '4px' }}>Application Deadline</span>
+                          <strong style={{ fontSize: '13px' }}>
+                            {modal.c.application_deadline ? new Date(modal.c.application_deadline).toLocaleDateString() : 'None'}
+                          </strong>
+                        </div>
+                        <div>
+                          <span style={{ fontSize: '12px', color: 'var(--text-3)', display: 'block', marginBottom: '4px' }}>Created At</span>
+                          <strong style={{ fontSize: '13px' }}>{new Date(modal.c.created_at).toLocaleString()}</strong>
+                        </div>
+                        <div>
+                          <span style={{ fontSize: '12px', color: 'var(--text-3)', display: 'block', marginBottom: '4px' }}>Updated At</span>
+                          <strong style={{ fontSize: '13px' }}>
+                            {modal.c.updated_at ? new Date(modal.c.updated_at).toLocaleString() : 'N/A'}
+                          </strong>
+                        </div>
+                      </div>
+                      {(modal.c.languages && modal.c.languages.length > 0) && (
+                        <div>
+                          <h3 style={{ fontSize: '14px', fontWeight: 600, margin: '0 0 8px 0', color: 'var(--text-2)' }}>Languages</h3>
+                          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                            {modal.c.languages.map(l => <span key={l} className="badge badge-gray">{l}</span>)}
+                          </div>
+                        </div>
+                      )}
+                      {(modal.c.platform_requirements && modal.c.platform_requirements.length > 0) && (
+                        <div>
+                          <h3 style={{ fontSize: '14px', fontWeight: 600, margin: '0 0 8px 0', color: 'var(--text-2)' }}>Platforms</h3>
+                          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                            {modal.c.platform_requirements.map(p => <span key={p} className="badge badge-gray">{p}</span>)}
+                          </div>
+                        </div>
+                      )}
+                      {(modal.c.deliverables && modal.c.deliverables.length > 0) && (
+                        <div>
+                          <h3 style={{ fontSize: '14px', fontWeight: 600, margin: '0 0 8px 0', color: 'var(--text-2)' }}>Deliverables</h3>
+                          <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '14px', color: 'var(--text-1)' }}>
+                            {modal.c.deliverables.map(d => <li key={d}>{d}</li>)}
+                          </ul>
+                        </div>
+                      )}
+                      {(modal.c.niche_tags && modal.c.niche_tags.length > 0) && (
+                        <div>
+                          <h3 style={{ fontSize: '14px', fontWeight: 600, margin: '0 0 8px 0', color: 'var(--text-2)' }}>Tags</h3>
+                          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                            {modal.c.niche_tags.map(t => <span key={t} className="badge badge-gray">{t}</span>)}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <>Confirm <strong>{modal.action}</strong> for: <strong>{modal.c.title}</strong>?</>
+                  )}
                 </div>
                 <div className="modal-footer">
-                  <button className="btn btn-secondary" onClick={() => setModal(null)}>Cancel</button>
-                  <button
-                    className={`btn ${modal.action === 'suspend' ? 'btn-danger' : 'btn-primary'}`}
-                    onClick={() => doAction(modal.c, modal.action)}
-                    disabled={actionLoading}
-                  >
-                    {actionLoading ? <span className="spinner" /> : `Confirm`}
-                  </button>
+                  {modal.action === 'view' ? (
+                    <button className="btn btn-secondary" onClick={() => setModal(null)}>Close</button>
+                  ) : (
+                    <>
+                      <button className="btn btn-secondary" onClick={() => setModal(null)}>Cancel</button>
+                      <button
+                        className={`btn ${modal.action === 'suspend' ? 'btn-danger' : 'btn-primary'}`}
+                        onClick={() => doAction(modal.c, modal.action)}
+                        disabled={actionLoading}
+                      >
+                        {actionLoading ? <span className="spinner" /> : `Confirm`}
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             </div>

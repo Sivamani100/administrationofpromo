@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Ban, AlertTriangle, CheckCircle } from 'lucide-react'
 import { banUser, unbanUser } from '@/app/actions/admin'
 import { useRouter } from 'next/navigation'
+import { useToast } from '@/components/ui/Toast'
 
 export default function UserActions({ 
   userId, 
@@ -14,20 +15,25 @@ export default function UserActions({
 }) {
   const [loading, setLoading] = useState(false)
   const router = useRouter()
+  const { success, error } = useToast()
 
   async function handleToggleBan() {
     setLoading(true)
     try {
       if (status === 'suspended') {
         await unbanUser(userId)
+        success('User un-suspended successfully')
       } else {
         await banUser(userId)
+        success('User suspended successfully')
       }
       router.refresh()
-    } catch (e) {
+    } catch (e: any) {
       console.error('Failed to toggle ban', e)
+      error(e.message || 'Failed to update user status')
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   return (

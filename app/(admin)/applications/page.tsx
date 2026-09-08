@@ -8,10 +8,14 @@ import { Search, RefreshCw, Briefcase, User, CheckCircle2, Clock, Ban, Send, Eye
 type Application = {
   id: string
   created_at: string
+  updated_at?: string
   status: string
   proposed_rate: string
   influencer_id: string
   card_id: string
+  pitch_message?: string
+  portfolio_links?: string[]
+  brand_note?: string
   influencer?: { display_name: string }
   card?: { title: string }
 }
@@ -25,6 +29,7 @@ export default function ApplicationsPage() {
   const [filter, setFilter]       = useState('all')
   const [page, setPage]           = useState(1)
   const [total, setTotal]         = useState(0)
+  const [modal, setModal]         = useState<{ a: Application; action: string } | null>(null)
 
   const [stats, setStats] = useState({
     total: 0,
@@ -205,9 +210,9 @@ export default function ApplicationsPage() {
                             </td>
                             <td>
                               <div className="td-actions">
-                                <Link href={`/applications/${a.id}`} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12.5px', gap: '6px', borderRadius: '8px' }}>
+                                <button onClick={() => setModal({ a, action: 'view' })} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12.5px', gap: '6px', borderRadius: '8px' }}>
                                   <Eye size={14} /> View
-                                </Link>
+                                </button>
                               </div>
                             </td>
                           </tr>
@@ -229,6 +234,98 @@ export default function ApplicationsPage() {
               <button className="page-btn" onClick={() => setPage(p => p + 1)} disabled={page >= totalPages || total === 0}>›</button>
             </div>
           </div>
+
+          {modal && (
+            <div className="modal-overlay" onClick={() => setModal(null)}>
+              <div className={`modal ${modal.action === 'view' ? 'modal-lg' : ''}`} onClick={e => e.stopPropagation()} style={modal.action === 'view' ? { maxWidth: '600px', width: '90%' } : {}}>
+                <div className="modal-header">
+                  <span className="modal-title">
+                    {modal.action === 'view' ? 'Application Details' : 'Action'}
+                  </span>
+                  <button className="modal-close" onClick={() => setModal(null)}>✕</button>
+                </div>
+                <div className="modal-body" style={modal.action === 'view' ? { maxHeight: '70vh', overflowY: 'auto' } : {}}>
+                  {modal.action === 'view' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                      <div>
+                        <h2 style={{ fontSize: '20px', fontWeight: 700, margin: '0 0 4px 0' }}>{modal.a.card?.title || 'Unknown Campaign'}</h2>
+                        <span className={`badge ${modal.a.status === 'accepted' ? 'badge-green' : modal.a.status === 'rejected' ? 'badge-red' : modal.a.status === 'shortlisted' ? 'badge-purple' : 'badge-yellow'}`}>
+                          {modal.a.status}
+                        </span>
+                      </div>
+                      
+                      {modal.a.pitch_message && (
+                        <div>
+                          <h3 style={{ fontSize: '14px', fontWeight: 600, margin: '0 0 8px 0', color: 'var(--text-2)' }}>Pitch Message</h3>
+                          <p style={{ margin: 0, fontSize: '14px', color: 'var(--text-1)', whiteSpace: 'pre-wrap', background: 'var(--bg-2)', padding: '12px', borderRadius: '8px' }}>
+                            {modal.a.pitch_message}
+                          </p>
+                        </div>
+                      )}
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', background: 'var(--bg-2)', padding: '16px', borderRadius: '8px' }}>
+                        <div>
+                          <span style={{ fontSize: '12px', color: 'var(--text-3)', display: 'block', marginBottom: '4px' }}>Application ID</span>
+                          <strong style={{ fontSize: '13px', wordBreak: 'break-all' }}>{modal.a.id}</strong>
+                        </div>
+                        <div>
+                          <span style={{ fontSize: '12px', color: 'var(--text-3)', display: 'block', marginBottom: '4px' }}>Campaign ID</span>
+                          <strong style={{ fontSize: '13px', wordBreak: 'break-all' }}>{modal.a.card_id}</strong>
+                        </div>
+                        <div>
+                          <span style={{ fontSize: '12px', color: 'var(--text-3)', display: 'block', marginBottom: '4px' }}>Influencer</span>
+                          <strong style={{ fontSize: '13px' }}>{modal.a.influencer?.display_name || 'Anonymous User'}</strong>
+                        </div>
+                        <div>
+                          <span style={{ fontSize: '12px', color: 'var(--text-3)', display: 'block', marginBottom: '4px' }}>Influencer ID</span>
+                          <strong style={{ fontSize: '13px', wordBreak: 'break-all' }}>{modal.a.influencer_id}</strong>
+                        </div>
+                        <div>
+                          <span style={{ fontSize: '12px', color: 'var(--text-3)', display: 'block', marginBottom: '4px' }}>Proposed Rate</span>
+                          <strong style={{ fontSize: '13px' }}>{modal.a.proposed_rate || '—'}</strong>
+                        </div>
+                        <div>
+                          <span style={{ fontSize: '12px', color: 'var(--text-3)', display: 'block', marginBottom: '4px' }}>Created At</span>
+                          <strong style={{ fontSize: '13px' }}>{new Date(modal.a.created_at).toLocaleString()}</strong>
+                        </div>
+                        <div>
+                          <span style={{ fontSize: '12px', color: 'var(--text-3)', display: 'block', marginBottom: '4px' }}>Updated At</span>
+                          <strong style={{ fontSize: '13px' }}>
+                            {modal.a.updated_at ? new Date(modal.a.updated_at).toLocaleString() : 'N/A'}
+                          </strong>
+                        </div>
+                      </div>
+
+                      {(modal.a.portfolio_links && modal.a.portfolio_links.length > 0) && (
+                        <div>
+                          <h3 style={{ fontSize: '14px', fontWeight: 600, margin: '0 0 8px 0', color: 'var(--text-2)' }}>Portfolio Links</h3>
+                          <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '14px', color: 'var(--primary)' }}>
+                            {modal.a.portfolio_links.map(link => (
+                              <li key={link}>
+                                <a href={link} target="_blank" rel="noopener noreferrer">{link}</a>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {modal.a.brand_note && (
+                        <div>
+                          <h3 style={{ fontSize: '14px', fontWeight: 600, margin: '0 0 8px 0', color: 'var(--text-2)' }}>Brand Note</h3>
+                          <p style={{ margin: 0, fontSize: '14px', color: 'var(--text-1)', whiteSpace: 'pre-wrap', background: 'var(--bg-3)', padding: '12px', borderRadius: '8px' }}>
+                            {modal.a.brand_note}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div className="modal-footer">
+                  <button className="btn btn-secondary" onClick={() => setModal(null)}>Close</button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

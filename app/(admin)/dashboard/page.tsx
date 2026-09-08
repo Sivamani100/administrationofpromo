@@ -5,20 +5,54 @@ import { useRouter } from 'next/navigation'
 import {
   Users, Megaphone, Flag, ShieldCheck, TrendingUp, TrendingDown,
   Activity, Bell, Clock, CheckCircle, XCircle, AlertTriangle, Send, MessageCircle, DollarSign,
-  Search, Download, Plus, RefreshCw, Settings
+  Search, Download, Plus, RefreshCw, Settings, MoreHorizontal, PlusCircle, Trash2, X
 } from 'lucide-react'
+import Dropdown from '@/components/ui/Dropdown'
+import Modal from '@/components/ui/Modal'
 import {
   BarChart, Bar, PieChart, Pie, Cell, LineChart, Line, RadarChart, PolarGrid, PolarAngleAxis, Radar, ComposedChart, Legend,
   CartesianGrid, Tooltip, ResponsiveContainer, XAxis, YAxis, AreaChart, Area, LabelList
 } from 'recharts'
 
-interface Stat { label: string; value: string; delta?: string; up?: boolean; icon: React.ReactNode; color: string; bg: string }
+interface Stat { id: string; label: string; value: string; delta?: string; up?: boolean; icon: React.ReactNode; color: string; bg: string; href: string }
 
 const CHART_COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#10b981', '#f59e0b', '#0ea5e9', '#ef4444', '#14b8a6']
 
 export default function DashboardPage() {
   const router = useRouter()
   const [stats, setStats] = useState({ users: 0, campaigns: 0, reports: 0, verifications: 0, applications: 0, rooms: 0, warnings: 0, payments: 0 })
+  
+  const [isEditing, setIsEditing] = useState(false)
+  const [addModalOpen, setAddModalOpen] = useState(false)
+  const [visibleStatIds, setVisibleStatIds] = useState<string[]>(['users', 'campaigns', 'applications', 'rooms', 'verifications', 'warnings'])
+  const [draggedId, setDraggedId] = useState<string | null>(null)
+  
+  const [isAnalyticsEditing, setIsAnalyticsEditing] = useState(false)
+  const [addAnalyticsModalOpen, setAddAnalyticsModalOpen] = useState(false)
+  const [visibleAnalyticsIds, setVisibleAnalyticsIds] = useState<string[]>(['roles', 'onboardings', 'status', 'campaigns', 'applications', 'verifications', 'warnings', 'demographics'])
+  const [draggedAnalyticsId, setDraggedAnalyticsId] = useState<string | null>(null)
+
+  const [isMounted, setIsMounted] = useState(false)
+
+  useEffect(() => {
+    setIsMounted(true)
+    const saved = localStorage.getItem('dashboard_stats')
+    if (saved) {
+      try { setVisibleStatIds(JSON.parse(saved)) } catch(e){}
+    }
+    const savedAnalytics = localStorage.getItem('dashboard_analytics')
+    if (savedAnalytics) {
+      try { setVisibleAnalyticsIds(JSON.parse(savedAnalytics)) } catch(e){}
+    }
+  }, [])
+
+  useEffect(() => {
+    if (isMounted) localStorage.setItem('dashboard_stats', JSON.stringify(visibleStatIds))
+  }, [visibleStatIds, isMounted])
+
+  useEffect(() => {
+    if (isMounted) localStorage.setItem('dashboard_analytics', JSON.stringify(visibleAnalyticsIds))
+  }, [visibleAnalyticsIds, isMounted])
   
   // Real Chart States
   const [rolesData, setRolesData] = useState<any[]>([])
@@ -179,40 +213,107 @@ export default function DashboardPage() {
     loadData()
   }, [])
 
-  const STATS: Stat[] = [
-    { label: 'Total Users',       value: stats.users.toLocaleString(),         icon: <Users size={16} />,       color: '#6366f1', bg: '#ede9fe' },
-    { label: 'Active Campaigns',  value: stats.campaigns.toLocaleString(),     icon: <Megaphone size={16} />,   color: '#10b981', bg: '#d1fae5' },
-    { label: 'Total Applications',value: stats.applications.toLocaleString(),  icon: <Send size={16} />,        color: '#3b82f6', bg: '#dbeafe' },
-    { label: 'Active Chat Rooms', value: stats.rooms.toLocaleString(),         icon: <MessageCircle size={16} />, color: '#8b5cf6', bg: '#ede9fe' },
-    { label: 'Pending Verify',    value: stats.verifications.toLocaleString(), icon: <ShieldCheck size={16} />, color: '#f59e0b', bg: '#fef3c7' },
-    { label: 'Active Warnings',   value: stats.warnings.toLocaleString(),      icon: <AlertTriangle size={16} />, color: '#ef4444', bg: '#fee2e2' },
+  const ALL_STATS: Stat[] = [
+    { id: 'users',        label: 'Total Users',       value: stats.users.toLocaleString(),         icon: <Users size={16} />,       color: '#6366f1', bg: '#ede9fe', href: '/users' },
+    { id: 'campaigns',    label: 'Active Campaigns',  value: stats.campaigns.toLocaleString(),     icon: <Megaphone size={16} />,   color: '#10b981', bg: '#d1fae5', href: '/campaigns' },
+    { id: 'applications', label: 'Total Applications',value: stats.applications.toLocaleString(),  icon: <Send size={16} />,        color: '#3b82f6', bg: '#dbeafe', href: '/applications' },
+    { id: 'rooms',        label: 'Active Chat Rooms', value: stats.rooms.toLocaleString(),         icon: <MessageCircle size={16} />, color: '#8b5cf6', bg: '#ede9fe', href: '/rooms' },
+    { id: 'verifications',label: 'Pending Verify',    value: stats.verifications.toLocaleString(), icon: <ShieldCheck size={16} />, color: '#f59e0b', bg: '#fef3c7', href: '/verification' },
+    { id: 'warnings',     label: 'Active Warnings',   value: stats.warnings.toLocaleString(),      icon: <AlertTriangle size={16} />, color: '#ef4444', bg: '#fee2e2', href: '/users' },
+    { id: 'reports',      label: 'Disputes/Reports',  value: stats.reports.toLocaleString(),       icon: <Flag size={16} />, color: '#ec4899', bg: '#fce7f3', href: '/disputes' },
+    { id: 'payments',     label: 'Total Payments',    value: stats.payments.toLocaleString(),      icon: <DollarSign size={16} />, color: '#14b8a6', bg: '#ccfbf1', href: '/settings' },
   ]
+
+  const visibleStats = visibleStatIds.map(id => ALL_STATS.find(s => s.id === id)).filter(Boolean) as Stat[]
+  const hiddenStats = ALL_STATS.filter(s => !visibleStatIds.includes(s.id))
 
   // Shared tooltip style to avoid clutter
   const tooltipStyle = { borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', fontSize: '12px' }
   const legendStyle = { fontSize: '11px', fontWeight: 600, color: 'var(--text-2)', paddingTop: '10px' }
 
+  const ALL_CHARTS_META = [
+    { id: 'roles', label: 'User Roles', subtitle: 'Distribution of user roles', icon: <Users size={16}/>, bg: '#ede9fe', color: '#6366f1' },
+    { id: 'onboardings', label: 'Onboardings', subtitle: 'User onboarding progress', icon: <TrendingUp size={16}/>, bg: '#d1fae5', color: '#10b981' },
+    { id: 'status', label: 'Account Status', subtitle: 'Status of user accounts', icon: <Activity size={16}/>, bg: '#dbeafe', color: '#3b82f6' },
+    { id: 'campaigns', label: 'Campaigns', subtitle: 'Campaigns by category', icon: <Megaphone size={16}/>, bg: '#ede9fe', color: '#8b5cf6' },
+    { id: 'applications', label: 'Applications', subtitle: 'Status breakdown', icon: <Send size={16}/>, bg: '#fef3c7', color: '#f59e0b' },
+    { id: 'verifications', label: 'Verifications', subtitle: 'Verification status', icon: <ShieldCheck size={16}/>, bg: '#fee2e2', color: '#ef4444' },
+    { id: 'warnings', label: 'Warnings', subtitle: 'Recent warnings trend', icon: <AlertTriangle size={16}/>, bg: '#fce7f3', color: '#ec4899' },
+    { id: 'demographics', label: 'Districts', subtitle: 'Top user districts', icon: <Flag size={16}/>, bg: '#ccfbf1', color: '#14b8a6' }
+  ]
+  const hiddenCharts = ALL_CHARTS_META.filter(c => !visibleAnalyticsIds.includes(c.id))
+
+  const getChartWrapperProps = (id: string) => {
+    if (!visibleAnalyticsIds.includes(id)) return { style: { display: 'none' } } as any;
+    return {
+      draggable: isAnalyticsEditing,
+      onDragStart: (e: React.DragEvent<HTMLDivElement>) => {
+        setDraggedAnalyticsId(id)
+        e.dataTransfer.effectAllowed = 'move'
+        setTimeout(() => { (e.target as HTMLElement).style.opacity = '0.5' }, 0)
+      },
+      onDragEnter: (e: React.DragEvent<HTMLDivElement>) => {
+        if (!draggedAnalyticsId || draggedAnalyticsId === id) return
+        setVisibleAnalyticsIds(prev => {
+          const oldIdx = prev.indexOf(draggedAnalyticsId)
+          const newIdx = prev.indexOf(id)
+          if (oldIdx === -1 || newIdx === -1) return prev
+          const clone = [...prev]
+          clone.splice(oldIdx, 1)
+          clone.splice(newIdx, 0, draggedAnalyticsId)
+          return clone
+        })
+      },
+      onDragOver: (e: React.DragEvent<HTMLDivElement>) => e.preventDefault(),
+      onDragEnd: (e: React.DragEvent<HTMLDivElement>) => {
+        setDraggedAnalyticsId(null)
+        ;(e.target as HTMLElement).style.opacity = '1'
+      },
+      style: { 
+        order: visibleAnalyticsIds.indexOf(id),
+        border: '1px solid rgba(0,0,0,0.04)', 
+        borderRadius: '12px', 
+        padding: '20px', 
+        background: '#fff', 
+        boxShadow: '0 2px 8px rgba(0,0,0,0.02)', 
+        position: 'relative' as const
+      }
+    }
+  }
+
+  const renderRemoveBtn = (id: string) => {
+    if (!isAnalyticsEditing) return null;
+    return (
+      <button 
+        onClick={() => setVisibleAnalyticsIds(prev => prev.filter(v => v !== id))}
+        style={{ position: 'absolute', top: -8, right: -8, width: 22, height: 22, background: '#ef4444', color: '#fff', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10, border: 'none', cursor: 'pointer' }}
+      >
+        <X size={14} strokeWidth={3} />
+      </button>
+    )
+  }
+
   return (
     <div className="page-wrap">
       <div className="dashboard-card-wrap" style={{ padding: 0 }}>
         
-        {/* Top Header inside card */}
-        <div className="dashboard-header" style={{ 
+        {/* App Bar */}
+        <div style={{ 
           display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
           position: 'sticky', top: 0, zIndex: 10, 
           background: 'var(--bg-2)', 
-          padding: '20px 24px 16px 24px', 
+          padding: '0 24px', 
+          height: 'var(--topbar-h)',
           borderBottom: '1px solid var(--border)',
           borderTopLeftRadius: '16px', borderTopRightRadius: '16px',
-          flexWrap: 'wrap', gap: '12px'
+          flexWrap: 'wrap', gap: '12px',
+          boxShadow: '0 1px 4px rgba(0,0,0,0.04)'
         }}>
-          <div>
-            <h1 style={{ fontSize: '18px', fontWeight: 800, margin: 0, color: 'var(--text-1)' }}>Administrator Dashboard</h1>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-            <span className="header-live-text" style={{ fontSize: '12px', color: 'var(--text-3)', marginRight: '8px' }}>Live Overview</span>
-            <button onClick={loadData} className="btn btn-secondary header-btn" style={{ padding: '8px 16px', fontSize: '13px', gap: '6px', borderRadius: '8px' }}><RefreshCw size={14} className="header-icon"/> Refresh</button>
-            <button onClick={() => router.push('/settings')} className="btn btn-secondary header-btn" style={{ padding: '8px 16px', fontSize: '13px', gap: '6px', borderRadius: '8px' }}><Settings size={14} className="header-icon"/> Settings</button>
+          <h1 style={{ fontSize: '15px', fontWeight: 700, margin: 0, color: 'var(--text-1)', letterSpacing: '-0.2px' }}>Administrator Dashboard</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '12px', color: 'var(--text-3)', marginRight: '4px' }}>Live Overview</span>
+            <button onClick={loadData} className="btn btn-secondary btn-sm" style={{ gap: '6px' }}><RefreshCw size={13}/> Refresh</button>
+            <button onClick={() => router.push('/settings')} className="btn btn-secondary btn-sm" style={{ gap: '6px' }}><Settings size={13}/> Settings</button>
           </div>
         </div>
 
@@ -220,17 +321,89 @@ export default function DashboardPage() {
           {/* Quick Stats */}
         <div style={{ marginBottom: '32px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <h2 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-1)' }}>Quick Stats</h2>
-            <button className="btn-ghost" style={{ border: 'none', padding: '4px' }}>
-              <span style={{ fontSize: '16px', lineHeight: 1, color: 'var(--text-3)' }}>...</span>
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <h2 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>Quick Stats</h2>
+              {isEditing && (
+                <span style={{ fontSize: '11px', background: '#fee2e2', color: '#ef4444', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>
+                  Editing Mode
+                </span>
+              )}
+            </div>
+            
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {isEditing ? (
+                <button 
+                  className="btn btn-primary btn-sm" 
+                  onClick={() => setIsEditing(false)}
+                  style={{ padding: '4px 12px', fontSize: '12px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                >
+                  <CheckCircle size={14} /> Done
+                </button>
+              ) : (
+                <Dropdown
+                  align="right"
+                  trigger={
+                    <button className="btn-ghost" style={{ border: 'none', padding: '4px' }}>
+                      <MoreHorizontal size={16} color="var(--text-3)" />
+                    </button>
+                  }
+                  items={[
+                    { label: 'Edit / Remove Widgets', icon: <Trash2 size={14}/>, onClick: () => setIsEditing(true) },
+                    { separator: true },
+                    { label: 'Add Widget', icon: <PlusCircle size={14}/>, onClick: () => setAddModalOpen(true) },
+                  ]}
+                />
+              )}
+            </div>
           </div>
+
           <div className="stats-grid">
-            {STATS.map(s => (
-              <div key={s.label} style={{ 
-                border: '1px solid rgba(0,0,0,0.04)', borderRadius: '12px', padding: '12px', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
-                minHeight: 120, display: 'flex', flexDirection: 'column', justifyContent: 'space-between'
-              }}>
+            {visibleStats.map(s => (
+              <div 
+                key={s.id} 
+                draggable={isEditing}
+                onDragStart={(e) => {
+                  setDraggedId(s.id)
+                  e.dataTransfer.effectAllowed = 'move'
+                  setTimeout(() => { (e.target as HTMLElement).style.opacity = '0.5' }, 0)
+                }}
+                onDragEnter={(e) => {
+                  if (!draggedId || draggedId === s.id) return
+                  setVisibleStatIds(prev => {
+                    const oldIdx = prev.indexOf(draggedId)
+                    const newIdx = prev.indexOf(s.id)
+                    if (oldIdx === -1 || newIdx === -1) return prev
+                    const clone = [...prev]
+                    clone.splice(oldIdx, 1)
+                    clone.splice(newIdx, 0, draggedId)
+                    return clone
+                  })
+                }}
+                onDragOver={(e) => e.preventDefault()}
+                onDragEnd={(e) => {
+                  setDraggedId(null)
+                  ;(e.target as HTMLElement).style.opacity = '1'
+                }}
+                onClick={() => {
+                  if (isEditing) {
+                    setVisibleStatIds(prev => prev.filter(id => id !== s.id))
+                  } else {
+                    router.push(s.href)
+                  }
+                }}
+                style={{ 
+                  border: '1px solid rgba(0,0,0,0.04)', borderRadius: '12px', padding: '12px', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
+                  minHeight: 120, display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+                  cursor: 'pointer', transition: 'box-shadow 0.15s ease', position: 'relative'
+                }}
+                onMouseEnter={e => { if (!isEditing) { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,0,0,0.06)'; } }}
+                onMouseLeave={e => { if (!isEditing) { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.02)'; } }}
+              >
+                {isEditing && (
+                  <div style={{ position: 'absolute', top: -8, right: -8, width: 22, height: 22, background: '#ef4444', color: '#fff', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>
+                    <X size={14} strokeWidth={3} />
+                  </div>
+                )}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <div style={{ width: 32, height: 32, borderRadius: '50%', background: s.bg, color: s.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     {s.icon}
@@ -258,13 +431,133 @@ export default function DashboardPage() {
                 </div>
               </div>
             ))}
+            
+            {visibleStats.length === 0 && (
+              <div style={{ gridColumn: '1 / -1', padding: '40px', textAlign: 'center', border: '1px dashed var(--border)', borderRadius: '12px' }}>
+                <div style={{ color: 'var(--text-3)', fontSize: '14px', marginBottom: '12px' }}>No quick stats pinned</div>
+                <button className="btn btn-primary btn-sm" onClick={() => setAddModalOpen(true)}>Add Widgets</button>
+              </div>
+            )}
           </div>
         </div>
+
+        <Modal open={addModalOpen} onClose={() => setAddModalOpen(false)} title="Add Quick Stat Widget" size="md">
+          <div style={{ padding: '0 8px' }}>
+            <p style={{ fontSize: '13px', color: 'var(--text-2)', marginBottom: '16px' }}>
+              Select a widget to add to your dashboard. ({hiddenStats.length} available)
+            </p>
+            {hiddenStats.length === 0 ? (
+              <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--text-3)', fontSize: '13px' }}>
+                All available widgets are already on your dashboard.
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                {hiddenStats.map(s => (
+                  <button 
+                    key={s.id}
+                    onClick={() => {
+                      setVisibleStatIds(prev => [...prev, s.id])
+                      if (hiddenStats.length === 1) setAddModalOpen(false)
+                    }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '12px', padding: '12px',
+                      background: 'var(--bg-1)', border: '1px solid var(--border)', borderRadius: '10px',
+                      cursor: 'pointer', textAlign: 'left', transition: 'border-color 0.1s'
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--primary)'}
+                    onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}
+                  >
+                    <div style={{ width: 32, height: 32, borderRadius: '50%', background: s.bg, color: s.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      {s.icon}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-1)' }}>{s.label}</div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-3)' }}>{s.value} currently</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </Modal>
+
+        <Modal open={addAnalyticsModalOpen} onClose={() => setAddAnalyticsModalOpen(false)} title="Add Analytics Widget" size="md">
+          <div style={{ padding: '0 8px' }}>
+            <p style={{ fontSize: '13px', color: 'var(--text-2)', marginBottom: '16px' }}>
+              Select a widget to add to your analytics overview. ({hiddenCharts.length} available)
+            </p>
+            {hiddenCharts.length === 0 ? (
+              <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--text-3)', fontSize: '13px' }}>
+                All available widgets are already on your dashboard.
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                {hiddenCharts.map(c => (
+                  <button 
+                    key={c.id}
+                    onClick={() => {
+                      setVisibleAnalyticsIds(prev => [...prev, c.id])
+                      if (hiddenCharts.length === 1) setAddAnalyticsModalOpen(false)
+                    }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '12px', padding: '12px',
+                      background: 'var(--bg-1)', border: '1px solid var(--border)', borderRadius: '10px',
+                      cursor: 'pointer', textAlign: 'left', transition: 'border-color 0.1s'
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--primary)'}
+                    onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}
+                  >
+                    <div style={{ width: 32, height: 32, borderRadius: '50%', background: c.bg, color: c.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      {c.icon}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-1)' }}>{c.label}</div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-3)' }}>{c.subtitle}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </Modal>
 
         {/* Main Analytics Grid */}
         <div style={{ marginTop: '32px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
-            <h2 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-1)' }}>Admin Overview Analytics</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <h2 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>Admin Overview Analytics</h2>
+              {isAnalyticsEditing && (
+                <span style={{ fontSize: '11px', background: '#fee2e2', color: '#ef4444', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>
+                  Editing Mode
+                </span>
+              )}
+            </div>
+            
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {isAnalyticsEditing ? (
+                <button 
+                  className="btn btn-primary btn-sm" 
+                  onClick={() => setIsAnalyticsEditing(false)}
+                  style={{ padding: '4px 12px', fontSize: '12px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                >
+                  <CheckCircle size={14} /> Done
+                </button>
+              ) : (
+                <Dropdown
+                  align="right"
+                  trigger={
+                    <button className="btn-ghost" style={{ border: 'none', padding: '4px' }}>
+                      <MoreHorizontal size={16} color="var(--text-3)" />
+                    </button>
+                  }
+                  items={[
+                    { label: 'Edit / Remove Widgets', icon: <Trash2 size={14}/>, onClick: () => setIsAnalyticsEditing(true) },
+                    { separator: true },
+                    { label: 'Add Widget', icon: <PlusCircle size={14}/>, onClick: () => setAddAnalyticsModalOpen(true) },
+                  ]}
+                />
+              )}
+            </div>
           </div>
           
           {loading ? (
@@ -277,7 +570,8 @@ export default function DashboardPage() {
             <div className="analytics-grid">
               
               {/* Chart 1: User Roles */}
-              <div style={{ border: '1px solid rgba(0,0,0,0.04)', borderRadius: '12px', padding: '20px', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.02)', position: 'relative' }}>
+              <div {...getChartWrapperProps('roles')}>
+                {renderRemoveBtn('roles')}
                 <div className="chart-card-header">
                   <div>
                     <div className="chart-card-title">User Roles</div>
@@ -318,7 +612,8 @@ export default function DashboardPage() {
               </div>
 
               {/* Chart 2: Onboardings */}
-              <div style={{ border: '1px solid rgba(0,0,0,0.04)', borderRadius: '12px', padding: '20px', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+              <div {...getChartWrapperProps('onboardings')}>
+                {renderRemoveBtn('onboardings')}
                 <div className="chart-card-header">
                   <div>
                     <div className="chart-card-title">Onboardings</div>
@@ -360,7 +655,8 @@ export default function DashboardPage() {
               </div>
 
               {/* Chart 3: Account Status */}
-              <div style={{ border: '1px solid rgba(0,0,0,0.04)', borderRadius: '12px', padding: '20px', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+              <div {...getChartWrapperProps('status')}>
+                {renderRemoveBtn('status')}
                 <div className="chart-card-header">
                   <div>
                     <div className="chart-card-title">Account Status</div>
@@ -398,7 +694,8 @@ export default function DashboardPage() {
               </div>
 
               {/* Chart 4: Campaigns / Promo Pages */}
-              <div style={{ border: '1px solid rgba(0,0,0,0.04)', borderRadius: '12px', padding: '20px', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+              <div {...getChartWrapperProps('campaigns')}>
+                {renderRemoveBtn('campaigns')}
                 <div className="chart-card-header">
                   <div>
                     <div className="chart-card-title">Campaigns</div>
@@ -448,7 +745,8 @@ export default function DashboardPage() {
               </div>
 
               {/* Chart 5: Applications */}
-              <div style={{ border: '1px solid rgba(0,0,0,0.04)', borderRadius: '12px', padding: '20px', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+              <div {...getChartWrapperProps('applications')}>
+                {renderRemoveBtn('applications')}
                 <div className="chart-card-header" style={{ marginBottom: 0 }}>
                   <div>
                     <div className="chart-card-title">Applications</div>
@@ -498,7 +796,8 @@ export default function DashboardPage() {
               </div>
 
               {/* Chart 6: Verifications */}
-              <div style={{ border: '1px solid rgba(0,0,0,0.04)', borderRadius: '12px', padding: '20px', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+              <div {...getChartWrapperProps('verifications')}>
+                {renderRemoveBtn('verifications')}
                 <div className="chart-card-header">
                   <div>
                     <div className="chart-card-title">Verifications</div>
@@ -537,7 +836,8 @@ export default function DashboardPage() {
               </div>
 
               {/* Chart 7: Warnings */}
-              <div style={{ border: '1px solid rgba(0,0,0,0.04)', borderRadius: '12px', padding: '20px', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+              <div {...getChartWrapperProps('warnings')}>
+                {renderRemoveBtn('warnings')}
                 <div className="chart-card-header">
                   <div>
                     <div className="chart-card-title">Warnings</div>
@@ -565,7 +865,8 @@ export default function DashboardPage() {
               </div>
 
               {/* Chart 8: Demographics */}
-              <div style={{ border: '1px solid rgba(0,0,0,0.04)', borderRadius: '12px', padding: '20px', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+              <div {...getChartWrapperProps('demographics')}>
+                {renderRemoveBtn('demographics')}
                 <div className="chart-card-header">
                   <div>
                     <div className="chart-card-title">Districts</div>
@@ -591,6 +892,12 @@ export default function DashboardPage() {
                 </div>
               </div>
 
+              {visibleAnalyticsIds.length === 0 && (
+                <div style={{ gridColumn: '1 / -1', padding: '40px', textAlign: 'center', border: '1px dashed var(--border)', borderRadius: '12px' }}>
+                  <div style={{ color: 'var(--text-3)', fontSize: '14px', marginBottom: '12px' }}>No analytics widgets pinned</div>
+                  <button className="btn btn-primary btn-sm" onClick={() => setAddAnalyticsModalOpen(true)}>Add Widgets</button>
+                </div>
+              )}
             </div>
           )}
           </div>

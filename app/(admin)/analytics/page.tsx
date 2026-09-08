@@ -6,9 +6,12 @@ import {
   Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LabelList,
 } from 'recharts'
 import { useRouter } from 'next/navigation'
+import Modal from '@/components/ui/Modal'
+import Dropdown from '@/components/ui/Dropdown'
 import {
   Users, Megaphone, AlertTriangle, ShieldCheck, TrendingUp, TrendingDown, RefreshCw, CheckCircle, Clock, XCircle,
-  Send, MessageCircle, Settings, DollarSign, MessageSquare, LifeBuoy, Star, UserX, Flag, ShieldAlert, CheckSquare, Activity
+  Send, MessageCircle, Settings, DollarSign, MessageSquare, LifeBuoy, Star, UserX, Flag, ShieldAlert, CheckSquare, Activity,
+  X, MoreHorizontal, Trash2, PlusCircle
 } from 'lucide-react'
 
 // Helper to format dates to Month
@@ -28,6 +31,35 @@ export default function AnalyticsPage() {
     warnings: 0, disputes: 0, revenue: 0, tickets: 0, reviews: 0, avgRating: 0, deleted: 0,
     pendingReports: 0, escalatedReports: 0, milestones: 0, auditEvents: 0 
   })
+
+  // --- UI States for Drag and Drop ---
+  const [isStatsEditing, setIsStatsEditing] = useState(false)
+  const [addStatsModalOpen, setAddStatsModalOpen] = useState(false)
+  const [visibleStatIds, setVisibleStatIds] = useState(['users', 'campaigns', 'revenue', 'applications', 'rooms', 'milestones', 'verifications', 'tickets', 'pendingReports', 'escalatedReports', 'disputes', 'warnings', 'reviews', 'avgRating', 'deleted', 'auditEvents'])
+  const [draggedStatId, setDraggedStatId] = useState<string | null>(null)
+
+  const [isAnalyticsEditing, setIsAnalyticsEditing] = useState(false)
+  const [addAnalyticsModalOpen, setAddAnalyticsModalOpen] = useState(false)
+  const [visibleAnalyticsIds, setVisibleAnalyticsIds] = useState(['growth', 'activity', 'roles', 'onboardings', 'status', 'categories', 'applications', 'verifications', 'warnings', 'demographics', 'financial', 'disputes', 'tickets', 'ratings', 'reports', 'milestones', 'audit', 'ticketsTrend'])
+  const [draggedAnalyticsId, setDraggedAnalyticsId] = useState<string | null>(null)
+
+  const [isMounted, setIsMounted] = useState(false)
+
+  useEffect(() => {
+    setIsMounted(true)
+    const savedStats = localStorage.getItem('analytics_stats')
+    if (savedStats) { try { setVisibleStatIds(JSON.parse(savedStats)) } catch(e){} }
+    const savedAnalytics = localStorage.getItem('analytics_charts')
+    if (savedAnalytics) { try { setVisibleAnalyticsIds(JSON.parse(savedAnalytics)) } catch(e){} }
+  }, [])
+
+  useEffect(() => {
+    if (isMounted) localStorage.setItem('analytics_stats', JSON.stringify(visibleStatIds))
+  }, [visibleStatIds, isMounted])
+
+  useEffect(() => {
+    if (isMounted) localStorage.setItem('analytics_charts', JSON.stringify(visibleAnalyticsIds))
+  }, [visibleAnalyticsIds, isMounted])
   
   // Analytics specific charts
   const [monthlyGrowth, setMonthlyGrowth] = useState<any[]>([])
@@ -323,6 +355,127 @@ export default function AnalyticsPage() {
 
   const tooltipStyle = { borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', fontSize: '12px' }
 
+  const ALL_STATS_META = [
+    { id: 'users', label: 'Total Users', value: totals.users, icon: <Users size={16} />, color: '#6366f1', bg: '#ede9fe', up: true, delta: 'Live' },
+    { id: 'campaigns', label: 'Active Campaigns', value: totals.campaigns, icon: <Megaphone size={16} />, color: '#10b981', bg: '#d1fae5', up: true, delta: 'Live' },
+    { id: 'revenue', label: 'Total Revenue', value: `${totals.revenue.toLocaleString()}`, icon: <DollarSign size={16} />, color: '#10b981', bg: '#d1fae5', up: true, delta: 'Live' },
+    { id: 'applications', label: 'Total Applications', value: totals.applications, icon: <Send size={16} />, color: '#3b82f6', bg: '#dbeafe', up: true, delta: 'Live' },
+    { id: 'rooms', label: 'Active Chat Rooms', value: totals.rooms, icon: <MessageCircle size={16} />, color: '#8b5cf6', bg: '#ede9fe', up: true, delta: 'Live' },
+    { id: 'milestones', label: 'Total Milestones', value: totals.milestones, icon: <CheckSquare size={16} />, color: '#14b8a6', bg: '#ccfbf1', up: true, delta: 'Live' },
+    { id: 'verifications', label: 'Pending Verify', value: totals.verifications, icon: <ShieldCheck size={16} />, color: '#f59e0b', bg: '#fef3c7', up: true, delta: 'Live' },
+    { id: 'tickets', label: 'Open Tickets', value: totals.tickets, icon: <LifeBuoy size={16} />, color: '#0ea5e9', bg: '#e0f2fe', up: false, delta: 'Live' },
+    { id: 'pendingReports', label: 'Pending Reports', value: totals.pendingReports, icon: <Flag size={16} />, color: '#f97316', bg: '#ffedd5', up: false, delta: 'Live' },
+    { id: 'escalatedReports', label: 'Escalated Reports', value: totals.escalatedReports, icon:<ShieldAlert size={16} />,color: '#ef4444', bg: '#fee2e2', up: false, delta: 'Live' },
+    { id: 'disputes', label: 'Open Disputes', value: totals.disputes, icon: <MessageSquare size={16} />, color: '#f97316', bg: '#ffedd5', up: false, delta: 'Live' },
+    { id: 'warnings', label: 'Active Warnings', value: totals.warnings, icon: <AlertTriangle size={16} />, color: '#ef4444', bg: '#fee2e2', up: false, delta: 'Live' },
+    { id: 'reviews', label: 'Total Reviews', value: totals.reviews, icon: <Star size={16} />, color: '#eab308', bg: '#fef08a', up: true, delta: 'Live' },
+    { id: 'avgRating', label: 'Avg Rating', value: `${totals.avgRating} / 5`, icon: <Star size={16} />, color: '#eab308', bg: '#fef08a', up: totals.avgRating >= 4, delta: 'Live' },
+    { id: 'deleted', label: 'Deleted Accounts', value: totals.deleted, icon: <UserX size={16} />, color: '#64748b', bg: '#f1f5f9', up: false, delta: 'Live' },
+    { id: 'auditEvents', label: 'Audit Events', value: totals.auditEvents, icon: <Activity size={16} />, color: '#8b5cf6', bg: '#ede9fe', up: true, delta: 'Live' },
+  ]
+  const visibleStats = visibleStatIds.map(id => ALL_STATS_META.find(s => s.id === id)).filter(Boolean) as typeof ALL_STATS_META
+  const hiddenStats = ALL_STATS_META.filter(s => !visibleStatIds.includes(s.id))
+
+  const getStatWrapperProps = (id: string) => {
+    if (!visibleStatIds.includes(id)) return { style: { display: 'none' } } as any;
+    return {
+      draggable: isStatsEditing,
+      onDragStart: (e: React.DragEvent<HTMLDivElement>) => {
+        setDraggedStatId(id); e.dataTransfer.effectAllowed = 'move';
+        setTimeout(() => { (e.target as HTMLElement).style.opacity = '0.5' }, 0);
+      },
+      onDragEnter: (e: React.DragEvent<HTMLDivElement>) => {
+        if (!draggedStatId || draggedStatId === id) return;
+        setVisibleStatIds(prev => {
+          const clone = [...prev];
+          const oldIdx = clone.indexOf(draggedStatId), newIdx = clone.indexOf(id);
+          if (oldIdx === -1 || newIdx === -1) return prev;
+          clone.splice(oldIdx, 1); clone.splice(newIdx, 0, draggedStatId);
+          return clone;
+        });
+      },
+      onDragOver: (e: React.DragEvent<HTMLDivElement>) => e.preventDefault(),
+      onDragEnd: (e: React.DragEvent<HTMLDivElement>) => {
+        setDraggedStatId(null); (e.target as HTMLElement).style.opacity = '1';
+      },
+      style: {
+        order: visibleStatIds.indexOf(id), border: '1px solid rgba(0,0,0,0.04)', borderRadius: '12px', padding: '12px', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
+        minHeight: 120, display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+        cursor: isStatsEditing ? 'grab' : 'pointer', transition: 'box-shadow 0.15s ease', position: 'relative' as const
+      }
+    };
+  };
+
+  const renderStatRemoveBtn = (id: string) => {
+    if (!isStatsEditing) return null;
+    return (
+      <button onClick={() => setVisibleStatIds(prev => prev.filter(v => v !== id))} style={{ position: 'absolute', top: -8, right: -8, width: 22, height: 22, background: '#ef4444', color: '#fff', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10, border: 'none', cursor: 'pointer' }}>
+        <X size={14} strokeWidth={3} />
+      </button>
+    );
+  };
+
+  const ALL_CHARTS_META = [
+    { id: 'growth', label: 'Cumulative Growth', subtitle: 'Total users and campaigns over 6 months', icon: <TrendingUp size={16}/>, bg: '#ede9fe', color: '#6366f1' },
+    { id: 'activity', label: 'Moderation Activity', subtitle: 'New reports and warnings per month', icon: <Activity size={16}/>, bg: '#fee2e2', color: '#ef4444' },
+    { id: 'roles', label: 'User Roles', subtitle: 'Breakdown by type', icon: <Users size={16}/>, bg: '#ede9fe', color: '#6366f1' },
+    { id: 'onboardings', label: 'Onboardings', subtitle: 'User progress', icon: <TrendingUp size={16}/>, bg: '#d1fae5', color: '#10b981' },
+    { id: 'status', label: 'Account Status', subtitle: 'Overall status', icon: <Activity size={16}/>, bg: '#dbeafe', color: '#3b82f6' },
+    { id: 'categories', label: 'Top Categories', subtitle: 'Campaign distribution', icon: <Megaphone size={16}/>, bg: '#ede9fe', color: '#8b5cf6' },
+    { id: 'applications', label: 'Applications', subtitle: 'Status breakdown', icon: <Send size={16}/>, bg: '#fef3c7', color: '#f59e0b' },
+    { id: 'verifications', label: 'Verifications', subtitle: 'Verification status', icon: <ShieldCheck size={16}/>, bg: '#fee2e2', color: '#ef4444' },
+    { id: 'warnings', label: 'Warnings', subtitle: 'Recent warnings trend', icon: <AlertTriangle size={16}/>, bg: '#fce7f3', color: '#ec4899' },
+    { id: 'demographics', label: 'Districts', subtitle: 'Top user districts', icon: <Flag size={16}/>, bg: '#ccfbf1', color: '#14b8a6' },
+    { id: 'financial', label: 'Payment Volume', subtitle: 'Completed payments over time', icon: <DollarSign size={16}/>, bg: '#d1fae5', color: '#10b981' },
+    { id: 'disputes', label: 'Disputes', subtitle: 'Resolution status breakdown', icon: <MessageSquare size={16}/>, bg: '#ffedd5', color: '#f97316' },
+    { id: 'tickets', label: 'Ticket Priority', subtitle: 'Support tickets by priority', icon: <LifeBuoy size={16}/>, bg: '#e0f2fe', color: '#0ea5e9' },
+    { id: 'ratings', label: 'Review Ratings', subtitle: 'Distribution of star ratings', icon: <Star size={16}/>, bg: '#fef08a', color: '#eab308' },
+    { id: 'reports', label: 'Moderation Queue', subtitle: 'Reports by status', icon: <Flag size={16}/>, bg: '#ffedd5', color: '#f97316' },
+    { id: 'milestones', label: 'Campaign Milestones', subtitle: 'Milestones completion status', icon: <CheckSquare size={16}/>, bg: '#ccfbf1', color: '#14b8a6' },
+    { id: 'audit', label: 'System Audit Log', subtitle: 'Top administrative actions', icon: <Activity size={16}/>, bg: '#ede9fe', color: '#8b5cf6' },
+    { id: 'ticketsTrend', label: 'Tickets Trend', subtitle: 'New tickets over 6 months', icon: <TrendingUp size={16}/>, bg: '#e0f2fe', color: '#0ea5e9' },
+  ];
+  const hiddenCharts = ALL_CHARTS_META.filter(c => !visibleAnalyticsIds.includes(c.id));
+
+  const getChartWrapperProps = (id: string) => {
+    if (!visibleAnalyticsIds.includes(id)) return { style: { display: 'none' } } as any;
+    return {
+      draggable: isAnalyticsEditing,
+      onDragStart: (e: React.DragEvent<HTMLDivElement>) => {
+        setDraggedAnalyticsId(id); e.dataTransfer.effectAllowed = 'move';
+        setTimeout(() => { (e.target as HTMLElement).style.opacity = '0.5' }, 0);
+      },
+      onDragEnter: (e: React.DragEvent<HTMLDivElement>) => {
+        if (!draggedAnalyticsId || draggedAnalyticsId === id) return;
+        setVisibleAnalyticsIds(prev => {
+          const clone = [...prev];
+          const oldIdx = clone.indexOf(draggedAnalyticsId), newIdx = clone.indexOf(id);
+          if (oldIdx === -1 || newIdx === -1) return prev;
+          clone.splice(oldIdx, 1); clone.splice(newIdx, 0, draggedAnalyticsId);
+          return clone;
+        });
+      },
+      onDragOver: (e: React.DragEvent<HTMLDivElement>) => e.preventDefault(),
+      onDragEnd: (e: React.DragEvent<HTMLDivElement>) => {
+        setDraggedAnalyticsId(null); (e.target as HTMLElement).style.opacity = '1';
+      },
+      style: {
+        order: visibleAnalyticsIds.indexOf(id), border: '1px solid rgba(0,0,0,0.04)', borderRadius: '12px', padding: '20px', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.02)', position: 'relative' as const
+      }
+    };
+  };
+
+  const renderChartRemoveBtn = (id: string) => {
+    if (!isAnalyticsEditing) return null;
+    return (
+      <button onClick={() => setVisibleAnalyticsIds(prev => prev.filter(v => v !== id))} style={{ position: 'absolute', top: -8, right: -8, width: 22, height: 22, background: '#ef4444', color: '#fff', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10, border: 'none', cursor: 'pointer' }}>
+        <X size={14} strokeWidth={3} />
+      </button>
+    );
+  };
+
+
+
   return (
     <div className="page-wrap">
       <div className="dashboard-card-wrap" style={{ padding: 0 }}>
@@ -350,35 +503,54 @@ export default function AnalyticsPage() {
 
       {/* KPIs */}
       <div style={{ marginBottom: '32px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-          <h2 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-1)' }}>Quick Stats</h2>
-          <button className="btn-ghost" style={{ border: 'none', padding: '4px' }}>
-            <span style={{ fontSize: '16px', lineHeight: 1, color: 'var(--text-3)' }}>...</span>
-          </button>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <h2 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>Quick Stats</h2>
+            {isStatsEditing && <span style={{ fontSize: '11px', background: '#fee2e2', color: '#ef4444', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>Editing Mode</span>}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {isStatsEditing ? (
+              <button className="btn btn-primary btn-sm" onClick={() => setIsStatsEditing(false)} style={{ padding: '4px 12px', fontSize: '12px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <CheckCircle size={14} /> Done
+              </button>
+            ) : (
+              <Dropdown
+                align="right"
+                trigger={<button className="btn-ghost" style={{ border: 'none', padding: '4px' }}><MoreHorizontal size={16} color="var(--text-3)" /></button>}
+                items={[
+                  { label: 'Edit / Remove Widgets', icon: <Trash2 size={14}/>, onClick: () => setIsStatsEditing(true) },
+                  { separator: true },
+                  { label: 'Add Widget', icon: <PlusCircle size={14}/>, onClick: () => setAddStatsModalOpen(true) },
+                ]}
+              />
+            )}
+          </div>
         </div>
+        
+        <Modal open={addStatsModalOpen} onClose={() => setAddStatsModalOpen(false)} title="Add Quick Stat Widget" size="md">
+          <div style={{ padding: '0 8px' }}>
+            <p style={{ fontSize: '13px', color: 'var(--text-2)', marginBottom: '16px' }}>Select a widget to add to your dashboard. ({hiddenStats.length} available)</p>
+            {hiddenStats.length === 0 ? (
+              <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--text-3)', fontSize: '13px' }}>All available widgets are already pinned.</div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                {hiddenStats.map(s => (
+                  <button key={s.id} onClick={() => { setVisibleStatIds(prev => [...prev, s.id]); if(hiddenStats.length === 1) setAddStatsModalOpen(false); }}
+                    style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: 'var(--bg-1)', border: '1px solid var(--border)', borderRadius: '10px', cursor: 'pointer', textAlign: 'left', transition: 'border-color 0.1s' }}
+                    onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--primary)'} onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}
+                  >
+                    <div style={{ width: 32, height: 32, borderRadius: '50%', background: s.bg, color: s.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{s.icon}</div>
+                    <div><div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-1)' }}>{s.label}</div><div style={{ fontSize: '11px', color: 'var(--text-3)' }}>{typeof s.value === 'number' ? s.value.toLocaleString() : s.value} currently</div></div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </Modal>
         <div className="stats-grid">
-          {[
-            { label: 'Total Users',       value: totals.users,         icon: <Users size={16} />,       color: '#6366f1', bg: '#ede9fe', up: true, delta: 'Live' },
-            { label: 'Active Campaigns',  value: totals.campaigns,     icon: <Megaphone size={16} />,   color: '#10b981', bg: '#d1fae5', up: true, delta: 'Live' },
-            { label: 'Total Revenue',     value: `$${totals.revenue.toLocaleString()}`, icon: <DollarSign size={16} />, color: '#10b981', bg: '#d1fae5', up: true, delta: 'Live' },
-            { label: 'Total Applications',value: totals.applications,  icon: <Send size={16} />,        color: '#3b82f6', bg: '#dbeafe', up: true, delta: 'Live' },
-            { label: 'Active Chat Rooms', value: totals.rooms,         icon: <MessageCircle size={16} />, color: '#8b5cf6', bg: '#ede9fe', up: true, delta: 'Live' },
-            { label: 'Total Milestones',  value: totals.milestones,    icon: <CheckSquare size={16} />, color: '#14b8a6', bg: '#ccfbf1', up: true, delta: 'Live' },
-            { label: 'Pending Verify',    value: totals.verifications, icon: <ShieldCheck size={16} />, color: '#f59e0b', bg: '#fef3c7', up: true, delta: 'Live' },
-            { label: 'Open Tickets',      value: totals.tickets,       icon: <LifeBuoy size={16} />,    color: '#0ea5e9', bg: '#e0f2fe', up: false, delta: 'Live' },
-            { label: 'Pending Reports',   value: totals.pendingReports,icon: <Flag size={16} />,        color: '#f97316', bg: '#ffedd5', up: false, delta: 'Live' },
-            { label: 'Escalated Reports', value: totals.escalatedReports,icon:<ShieldAlert size={16} />,color: '#ef4444', bg: '#fee2e2', up: false, delta: 'Live' },
-            { label: 'Open Disputes',     value: totals.disputes,      icon: <MessageSquare size={16} />, color: '#f97316', bg: '#ffedd5', up: false, delta: 'Live' },
-            { label: 'Active Warnings',   value: totals.warnings,      icon: <AlertTriangle size={16} />, color: '#ef4444', bg: '#fee2e2', up: false, delta: 'Live' },
-            { label: 'Total Reviews',     value: totals.reviews,       icon: <Star size={16} />,        color: '#eab308', bg: '#fef08a', up: true, delta: 'Live' },
-            { label: 'Avg Rating',        value: `${totals.avgRating} / 5`, icon: <Star size={16} />,   color: '#eab308', bg: '#fef08a', up: totals.avgRating >= 4, delta: 'Live' },
-            { label: 'Deleted Accounts',  value: totals.deleted,       icon: <UserX size={16} />,       color: '#64748b', bg: '#f1f5f9', up: false, delta: 'Live' },
-            { label: 'Audit Events',      value: totals.auditEvents,   icon: <Activity size={16} />,    color: '#8b5cf6', bg: '#ede9fe', up: true, delta: 'Live' },
-          ].map(k => (
-            <div key={k.label} style={{ 
-              border: '1px solid rgba(0,0,0,0.04)', borderRadius: '12px', padding: '12px', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
-              minHeight: 120, display: 'flex', flexDirection: 'column', justifyContent: 'space-between'
-            }}>
+          {visibleStats.map(k => (
+            <div key={k.id} {...getStatWrapperProps(k.id)}>
+              {renderStatRemoveBtn(k.id)}
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <div style={{ width: 32, height: 32, borderRadius: '50%', background: k.bg, color: k.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   {k.icon}
@@ -404,12 +576,59 @@ export default function AnalyticsPage() {
               </div>
             </div>
           ))}
+          {visibleStatIds.length === 0 && (
+            <div style={{ gridColumn: '1 / -1', padding: '40px', textAlign: 'center', border: '1px dashed var(--border)', borderRadius: '12px' }}>
+              <div style={{ color: 'var(--text-3)', fontSize: '14px', marginBottom: '12px' }}>No quick stats pinned</div>
+              <button className="btn btn-primary btn-sm" onClick={() => setAddStatsModalOpen(true)}>Add Widgets</button>
+            </div>
+          )}
         </div>
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-        <h2 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-1)' }}>Detailed Analytics</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <h2 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>Detailed Analytics</h2>
+          {isAnalyticsEditing && <span style={{ fontSize: '11px', background: '#fee2e2', color: '#ef4444', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>Editing Mode</span>}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {isAnalyticsEditing ? (
+            <button className="btn btn-primary btn-sm" onClick={() => setIsAnalyticsEditing(false)} style={{ padding: '4px 12px', fontSize: '12px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <CheckCircle size={14} /> Done
+            </button>
+          ) : (
+            <Dropdown
+              align="right"
+              trigger={<button className="btn-ghost" style={{ border: 'none', padding: '4px' }}><MoreHorizontal size={16} color="var(--text-3)" /></button>}
+              items={[
+                { label: 'Edit / Remove Widgets', icon: <Trash2 size={14}/>, onClick: () => setIsAnalyticsEditing(true) },
+                { separator: true },
+                { label: 'Add Widget', icon: <PlusCircle size={14}/>, onClick: () => setAddAnalyticsModalOpen(true) },
+              ]}
+            />
+          )}
+        </div>
       </div>
+      
+      <Modal open={addAnalyticsModalOpen} onClose={() => setAddAnalyticsModalOpen(false)} title="Add Analytics Widget" size="md">
+        <div style={{ padding: '0 8px' }}>
+          <p style={{ fontSize: '13px', color: 'var(--text-2)', marginBottom: '16px' }}>Select a widget to add. ({hiddenCharts.length} available)</p>
+          {hiddenCharts.length === 0 ? (
+            <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--text-3)', fontSize: '13px' }}>All available widgets are already pinned.</div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              {hiddenCharts.map(c => (
+                <button key={c.id} onClick={() => { setVisibleAnalyticsIds(prev => [...prev, c.id]); if(hiddenCharts.length === 1) setAddAnalyticsModalOpen(false); }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: 'var(--bg-1)', border: '1px solid var(--border)', borderRadius: '10px', cursor: 'pointer', textAlign: 'left', transition: 'border-color 0.1s' }}
+                  onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--primary)'} onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}
+                >
+                  <div style={{ width: 32, height: 32, borderRadius: '50%', background: c.bg, color: c.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{c.icon}</div>
+                  <div><div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-1)' }}>{c.label}</div><div style={{ fontSize: '11px', color: 'var(--text-3)' }}>{c.subtitle}</div></div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </Modal>
 
       {loading ? (
         <div className="analytics-grid">
@@ -419,7 +638,8 @@ export default function AnalyticsPage() {
         <div className="analytics-grid">
 
           {/* Cumulative Growth */}
-          <div style={{ border: '1px solid rgba(0,0,0,0.04)', borderRadius: '12px', padding: '20px', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.02)', position: 'relative' }}>
+          <div {...getChartWrapperProps('growth')}>
+            {renderChartRemoveBtn('growth')}
             <div className="chart-card-header">
               <div>
                 <div className="chart-card-title">Cumulative Growth</div>
@@ -452,7 +672,8 @@ export default function AnalyticsPage() {
           </div>
 
           {/* Monthly Activity */}
-          <div style={{ border: '1px solid rgba(0,0,0,0.04)', borderRadius: '12px', padding: '20px', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.02)', position: 'relative' }}>
+          <div {...getChartWrapperProps('activity')}>
+            {renderChartRemoveBtn('activity')}
             <div className="chart-card-header">
               <div>
                 <div className="chart-card-title">Moderation Activity</div>
@@ -475,7 +696,8 @@ export default function AnalyticsPage() {
           </div>
 
           {/* User Roles */}
-          <div style={{ border: '1px solid rgba(0,0,0,0.04)', borderRadius: '12px', padding: '20px', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.02)', position: 'relative' }}>
+          <div {...getChartWrapperProps('roles')}>
+            {renderChartRemoveBtn('roles')}
             <div className="chart-card-header">
               <div>
                 <div className="chart-card-title">User Roles</div>
@@ -513,7 +735,8 @@ export default function AnalyticsPage() {
           </div>
 
           {/* Onboardings */}
-          <div style={{ border: '1px solid rgba(0,0,0,0.04)', borderRadius: '12px', padding: '20px', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+          <div {...getChartWrapperProps('onboardings')}>
+            {renderChartRemoveBtn('onboardings')}
             <div className="chart-card-header">
               <div>
                 <div className="chart-card-title">Onboardings</div>
@@ -555,7 +778,8 @@ export default function AnalyticsPage() {
           </div>
 
           {/* Account Status (Half Donut) */}
-          <div style={{ border: '1px solid rgba(0,0,0,0.04)', borderRadius: '12px', padding: '20px', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+          <div {...getChartWrapperProps('status')}>
+            {renderChartRemoveBtn('status')}
             <div className="chart-card-header">
               <div>
                 <div className="chart-card-title">Account Status</div>
@@ -592,7 +816,8 @@ export default function AnalyticsPage() {
           </div>
 
           {/* Campaign Categories */}
-          <div style={{ border: '1px solid rgba(0,0,0,0.04)', borderRadius: '12px', padding: '20px', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.02)', position: 'relative' }}>
+          <div {...getChartWrapperProps('categories')}>
+            {renderChartRemoveBtn('categories')}
             <div className="chart-card-header">
               <div>
                 <div className="chart-card-title">Top Categories</div>
@@ -630,7 +855,8 @@ export default function AnalyticsPage() {
           </div>
 
           {/* Applications Status Area Chart */}
-          <div style={{ border: '1px solid rgba(0,0,0,0.04)', borderRadius: '12px', padding: '20px', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+          <div {...getChartWrapperProps('applications')}>
+            {renderChartRemoveBtn('applications')}
             <div className="chart-card-header" style={{ marginBottom: 0 }}>
               <div>
                 <div className="chart-card-title">Applications</div>
@@ -676,7 +902,8 @@ export default function AnalyticsPage() {
           </div>
 
           {/* Verifications */}
-          <div style={{ border: '1px solid rgba(0,0,0,0.04)', borderRadius: '12px', padding: '20px', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+          <div {...getChartWrapperProps('verifications')}>
+            {renderChartRemoveBtn('verifications')}
             <div className="chart-card-header">
               <div>
                 <div className="chart-card-title">Verifications</div>
@@ -716,7 +943,8 @@ export default function AnalyticsPage() {
           </div>
 
           {/* Warnings */}
-          <div style={{ border: '1px solid rgba(0,0,0,0.04)', borderRadius: '12px', padding: '20px', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+          <div {...getChartWrapperProps('warnings')}>
+            {renderChartRemoveBtn('warnings')}
             <div className="chart-card-header">
               <div>
                 <div className="chart-card-title">Warnings</div>
@@ -744,7 +972,8 @@ export default function AnalyticsPage() {
           </div>
 
           {/* Demographics */}
-          <div style={{ border: '1px solid rgba(0,0,0,0.04)', borderRadius: '12px', padding: '20px', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+          <div {...getChartWrapperProps('demographics')}>
+            {renderChartRemoveBtn('demographics')}
             <div className="chart-card-header">
               <div>
                 <div className="chart-card-title">Districts</div>
@@ -771,7 +1000,8 @@ export default function AnalyticsPage() {
           </div>
 
           {/* Payment Volume (Financial) */}
-          <div style={{ border: '1px solid rgba(0,0,0,0.04)', borderRadius: '12px', padding: '20px', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+          <div {...getChartWrapperProps('financial')}>
+            {renderChartRemoveBtn('financial')}
             <div className="chart-card-header">
               <div>
                 <div className="chart-card-title">Payment Volume</div>
@@ -799,7 +1029,8 @@ export default function AnalyticsPage() {
           </div>
 
           {/* Disputes Status */}
-          <div style={{ border: '1px solid rgba(0,0,0,0.04)', borderRadius: '12px', padding: '20px', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.02)', position: 'relative' }}>
+          <div {...getChartWrapperProps('disputes')}>
+            {renderChartRemoveBtn('disputes')}
             <div className="chart-card-header">
               <div>
                 <div className="chart-card-title">Disputes</div>
@@ -837,7 +1068,8 @@ export default function AnalyticsPage() {
           </div>
 
           {/* Support Tickets Priority */}
-          <div style={{ border: '1px solid rgba(0,0,0,0.04)', borderRadius: '12px', padding: '20px', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.02)', position: 'relative' }}>
+          <div {...getChartWrapperProps('tickets')}>
+            {renderChartRemoveBtn('tickets')}
             <div className="chart-card-header">
               <div>
                 <div className="chart-card-title">Ticket Priority</div>
@@ -875,7 +1107,8 @@ export default function AnalyticsPage() {
           </div>
 
           {/* Review Ratings */}
-          <div style={{ border: '1px solid rgba(0,0,0,0.04)', borderRadius: '12px', padding: '20px', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+          <div {...getChartWrapperProps('ratings')}>
+            {renderChartRemoveBtn('ratings')}
             <div className="chart-card-header">
               <div>
                 <div className="chart-card-title">Review Ratings</div>
@@ -899,7 +1132,8 @@ export default function AnalyticsPage() {
           </div>
 
           {/* Reports Status */}
-          <div style={{ border: '1px solid rgba(0,0,0,0.04)', borderRadius: '12px', padding: '20px', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.02)', position: 'relative' }}>
+          <div {...getChartWrapperProps('reports')}>
+            {renderChartRemoveBtn('reports')}
             <div className="chart-card-header">
               <div>
                 <div className="chart-card-title">Moderation Queue</div>
@@ -937,7 +1171,8 @@ export default function AnalyticsPage() {
           </div>
 
           {/* Milestones Status */}
-          <div style={{ border: '1px solid rgba(0,0,0,0.04)', borderRadius: '12px', padding: '20px', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.02)', position: 'relative' }}>
+          <div {...getChartWrapperProps('milestones')}>
+            {renderChartRemoveBtn('milestones')}
             <div className="chart-card-header">
               <div>
                 <div className="chart-card-title">Campaign Milestones</div>
@@ -975,7 +1210,8 @@ export default function AnalyticsPage() {
           </div>
 
           {/* Audit Actions Bar */}
-          <div style={{ border: '1px solid rgba(0,0,0,0.04)', borderRadius: '12px', padding: '20px', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+          <div {...getChartWrapperProps('audit')}>
+            {renderChartRemoveBtn('audit')}
             <div className="chart-card-header">
               <div>
                 <div className="chart-card-title">System Audit Log</div>
@@ -1002,7 +1238,8 @@ export default function AnalyticsPage() {
           </div>
 
           {/* Support Tickets Trend */}
-          <div style={{ border: '1px solid rgba(0,0,0,0.04)', borderRadius: '12px', padding: '20px', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+          <div {...getChartWrapperProps('ticketsTrend')}>
+            {renderChartRemoveBtn('ticketsTrend')}
             <div className="chart-card-header">
               <div>
                 <div className="chart-card-title">Tickets Trend</div>
@@ -1029,6 +1266,12 @@ export default function AnalyticsPage() {
             </div>
           </div>
 
+          {visibleAnalyticsIds.length === 0 && (
+            <div style={{ gridColumn: '1 / -1', padding: '40px', textAlign: 'center', border: '1px dashed var(--border)', borderRadius: '12px' }}>
+              <div style={{ color: 'var(--text-3)', fontSize: '14px', marginBottom: '12px' }}>No analytics widgets pinned</div>
+              <button className="btn btn-primary btn-sm" onClick={() => setAddAnalyticsModalOpen(true)}>Add Widgets</button>
+            </div>
+          )}
         </div>
       )}
         </div>

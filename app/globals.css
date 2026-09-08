@@ -1,4 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import './ui-components.css';
 
 /* ──────────────────────────────────────────
    CSS VARIABLES — Design Tokens
@@ -43,9 +44,9 @@
   --purple-bg:#ede9fe;
 
   /* Sizing */
-  --sidebar-w:      240px;
-  --sidebar-w-col:   64px;
-  --topbar-h:        64px;
+  --sidebar-w:      200px;
+  --sidebar-w-col:   56px;
+  --topbar-h:        60px;
   --radius:           8px;
   --radius-lg:       12px;
   --radius-xl:       16px;
@@ -110,9 +111,9 @@ input, textarea, select { font-family: var(--font); }
 
 .sidebar {
   position: fixed;
-  top: 24px; left: 24px;
+  top: 12px; left: 12px;
   width: var(--sidebar-w);
-  height: calc(100dvh - 48px);
+  height: calc(100dvh - 24px);
   background: var(--sidebar-bg);
   border-radius: 20px;
   display: flex;
@@ -173,11 +174,11 @@ input, textarea, select { font-family: var(--font); }
 .sidebar-logo {
   display: flex;
   align-items: center;
-  padding: 20px 16px;
+  padding: 12px 14px;
   min-height: var(--topbar-h);
   white-space: nowrap;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 .sidebar-logo-left {
   display: flex;
@@ -487,7 +488,7 @@ input, textarea, select { font-family: var(--font); }
    MAIN CONTENT
    ────────────────────────────────────────── */
 .main-content {
-  margin-left: calc(var(--sidebar-w) + 35px);
+  margin-left: calc(var(--sidebar-w) + 24px);
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -495,7 +496,7 @@ input, textarea, select { font-family: var(--font); }
   overflow: hidden;
   transition: margin-left var(--tx);
 }
-.main-content.sidebar-collapsed { margin-left: calc(var(--sidebar-w-col) + 35px); }
+.main-content.sidebar-collapsed { margin-left: calc(var(--sidebar-w-col) + 24px); }
 
 @media (max-width: 900px) {
   .main-content {
@@ -666,12 +667,12 @@ input, textarea, select { font-family: var(--font); }
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
-  padding: 0 24px;
-  gap: 12px;
+  padding: 0 16px;
+  gap: 10px;
   z-index: 50;
 }
 .topbar-title {
-  font-size: 18px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--text-1);
   flex: 1;
@@ -759,7 +760,7 @@ input, textarea, select { font-family: var(--font); }
    PAGE WRAPPER
    ────────────────────────────────────────── */
 .page-wrap {
-  padding: 24px 24px 24px 0; /* top, right, bottom, left */
+  padding: 12px 12px 12px 0; /* top, right, bottom, left */
   flex: 1;
   height: 100dvh;
   min-height: 0;
@@ -770,12 +771,58 @@ input, textarea, select { font-family: var(--font); }
   overflow: hidden;
 }
 
+/* ──────────────────────────────────────────
+   GLOBAL APP BAR (dashboard-header)
+   Overrides all per-page inline padding so every
+   page header looks identical to the dashboard.
+   ────────────────────────────────────────── */
+.dashboard-header {
+  height: var(--topbar-h) !important;
+  min-height: var(--topbar-h) !important;
+  padding: 0 24px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 10 !important;
+  background: var(--bg-2) !important;
+  border-bottom: 1px solid var(--border) !important;
+  border-top-left-radius: 16px !important;
+  border-top-right-radius: 16px !important;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04) !important;
+  flex-wrap: nowrap !important;
+  gap: 12px !important;
+  box-sizing: border-box !important;
+}
+
+/* Title inside dashboard-header */
+.dashboard-header h1,
+.dashboard-header > div > h1,
+.dashboard-header > h1 {
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.2px !important;
+  color: var(--text-1) !important;
+  margin: 0 !important;
+}
+
+/* Action buttons inside dashboard-header */
+.dashboard-header .btn {
+  padding: 6px 12px !important;
+  font-size: 12.5px !important;
+}
+.dashboard-header .btn svg {
+  width: 13px !important;
+  height: 13px !important;
+}
+
 @media (max-width: 900px) {
-  .page-wrap {
-    padding: 12px;
-  }
   .dashboard-header {
-    padding: 16px !important;
+    height: auto !important;
+    min-height: var(--topbar-h) !important;
+    padding: 12px 16px !important;
+    flex-wrap: wrap !important;
   }
   .table-toolbar {
     padding: 12px 16px !important;

@@ -2,8 +2,9 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
-import { Search, RefreshCw, Bot, User, MessageSquare } from 'lucide-react'
+import { Search, RefreshCw, Bot, User, MessageSquare, Save, Key, Cpu, Server } from 'lucide-react'
 import Link from 'next/link'
+import { getAiConfig, updateAiConfig } from '@/app/actions/admin'
 
 type ChatMessage = {
   id: string
@@ -30,14 +31,20 @@ export default function AiChatsPage() {
     aiMsgs: 0
   })
 
+  const [aiConfig, setAiConfig] = useState({ provider: '', model: '', api_key: '' })
+  const [configSaving, setConfigSaving] = useState(false)
+
   const load = useCallback(async () => {
     setLoading(true)
     const sb = createClient()
     
     // Quick Stats
-    const [allRes] = await Promise.all([
-      sb.from('ai_assistant_chats').select('*', { count: 'exact', head: true }).eq('is_user', true)
+    const [allRes, config] = await Promise.all([
+      sb.from('ai_assistant_chats').select('*', { count: 'exact', head: true }).eq('is_user', true),
+      getAiConfig()
     ])
+    
+    setAiConfig(config)
     
     setStats({
       total: allRes.count || 0,
@@ -63,6 +70,20 @@ export default function AiChatsPage() {
   }, [page, search])
 
   useEffect(() => { load() }, [load])
+
+  const handleSaveConfig = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setConfigSaving(true)
+    try {
+      await updateAiConfig(aiConfig)
+      alert('AI Configuration updated successfully!')
+    } catch (err) {
+      console.error(err)
+      alert('Failed to update configuration.')
+    } finally {
+      setConfigSaving(false)
+    }
+  }
 
   const totalPages = Math.ceil(total / PAGE_SIZE)
 
@@ -97,6 +118,60 @@ export default function AiChatsPage() {
 
         <div style={{ padding: '24px' }}>
           
+          <div style={{ marginBottom: '32px', border: '1px solid var(--border)', borderRadius: '12px', background: '#fff', overflow: 'hidden' }}>
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', background: 'var(--bg-2)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Bot size={18} color="var(--primary)" />
+              <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>AI Provider Settings</h3>
+            </div>
+            <form onSubmit={handleSaveConfig} style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', display: 'flex', alignItems: 'center', gap: '6px' }}><Server size={14} /> Provider</label>
+                  <select 
+                    className="input" 
+                    value={aiConfig.provider} 
+                    onChange={e => setAiConfig({...aiConfig, provider: e.target.value})}
+                    style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border)' }}
+                    required
+                  >
+                    <option value="">Select Provider</option>
+                    <option value="gemini">Google Gemini</option>
+                    <option value="openai">OpenAI</option>
+                    <option value="anthropic">Anthropic</option>
+                  </select>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', display: 'flex', alignItems: 'center', gap: '6px' }}><Cpu size={14} /> Model Name</label>
+                  <input 
+                    className="input" 
+                    placeholder="e.g. gemini-1.5-pro" 
+                    value={aiConfig.model} 
+                    onChange={e => setAiConfig({...aiConfig, model: e.target.value})}
+                    style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border)' }}
+                    required
+                  />
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', display: 'flex', alignItems: 'center', gap: '6px' }}><Key size={14} /> API Key</label>
+                <input 
+                  type="password"
+                  className="input" 
+                  placeholder="Enter API Key" 
+                  value={aiConfig.api_key} 
+                  onChange={e => setAiConfig({...aiConfig, api_key: e.target.value})}
+                  style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border)' }}
+                  required
+                />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
+                <button type="submit" className="btn btn-primary" disabled={configSaving || loading} style={{ padding: '8px 20px', borderRadius: '8px', gap: '6px' }}>
+                  <Save size={16} /> {configSaving ? 'Saving...' : 'Save Configuration'}
+                </button>
+              </div>
+            </form>
+          </div>
+
           <div style={{ marginBottom: '24px' }}>
             <div className="stats-grid" style={{ gridTemplateColumns: `repeat(${STATS.length}, 1fr)` }}>
               {STATS.map((s, i) => (

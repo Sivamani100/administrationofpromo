@@ -205,7 +205,7 @@ export default function PromoPagesPage() {
                               )}
                             </td>
                             <td>
-                              <a href={`https://promo.app/${p.username}`} target="_blank" rel="noopener noreferrer" className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12.5px', gap: '6px', borderRadius: '8px' }}>
+                              <a href={`https://promo.arkio.in/@${p.username}`} target="_blank" rel="noopener noreferrer" className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12.5px', gap: '6px', borderRadius: '8px' }}>
                                 <LinkIcon size={12} /> Visit
                               </a>
                             </td>

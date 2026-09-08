@@ -2,7 +2,8 @@
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
-import { Search, RefreshCw, MessageCircle, User, Briefcase, Calendar, Ban, CheckCircle2, MessageSquare, AlertCircle } from 'lucide-react'
+import { Search, RefreshCw, MessageCircle, User, Briefcase, Calendar, Ban, CheckCircle2, MessageSquare, AlertCircle, Eye } from 'lucide-react'
+import ChatViewModal from '@/components/admin/ChatViewModal'
 
 type Room = {
   id: string
@@ -22,9 +23,11 @@ export default function RoomsPage() {
   const [rooms, setRooms]         = useState<Room[]>([])
   const [loading, setLoading]     = useState(true)
   const [search, setSearch]       = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [filter, setFilter]       = useState('all') // all, active, closed
   const [page, setPage]           = useState(1)
   const [total, setTotal]         = useState(0)
+  const [selectedRoom, setSelectedRoom] = useState<Room | null>(null)
   
   const [stats, setStats] = useState({
     total: 0,
@@ -33,7 +36,16 @@ export default function RoomsPage() {
     suspended: 0
   })
 
-  const load = useCallback(async () => {
+  // Debounce search input
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search)
+      setPage(1) // Reset page on new search
+    }, 300)
+    return () => clearTimeout(handler)
+  }, [search])
+
+  const load = useCallback(async (abortSignal?: AbortSignal) => {
     setLoading(true)
     const sb = createClient()
     
@@ -44,42 +56,56 @@ export default function RoomsPage() {
       sb.from('rooms').select('*', { count: 'exact', head: true }).eq('is_active', false)
     ])
     
+    if (abortSignal?.aborted) return
+
     setStats({
       total: allRes.count || 0,
       active: activeRes.count || 0,
       closed: closedRes.count || 0,
-      suspended: 0 // Placeholder if we add suspended status later
+      suspended: 0
     })
 
-    // Fetch Table Data
-    let q = sb.from('rooms')
-      .select('*, brand:profiles!rooms_brand_id_fkey(id, display_name), influencer:profiles!rooms_influencer_id_fkey(id, display_name), card:cards!rooms_card_id_fkey(id, title)', { count: 'exact' })
+    // Fetch Table Data using the admin_rooms_view for server-side search
+    let q = sb.from('admin_rooms_view').select('*', { count: 'exact' })
     
     if (filter === 'active') q = q.eq('is_active', true)
     if (filter === 'closed') q = q.eq('is_active', false)
     
+    if (debouncedSearch) {
+      const s = debouncedSearch.toLowerCase()
+      q = q.or(`brand_name.ilike.%${s}%,influencer_name.ilike.%${s}%,card_title.ilike.%${s}%`)
+    }
+
     q = q.order('created_at', { ascending: false })
          .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1)
          
     const { data, count } = await q
+    if (abortSignal?.aborted) return
+
     if (data) {
-      // Basic client-side search (since we need to search related tables, doing it client side for simplicity, though pg_search is better)
-      let filtered = data as Room[]
-      if (search) {
-        const s = search.toLowerCase()
-        filtered = filtered.filter(r => 
-          r.brand?.display_name?.toLowerCase().includes(s) || 
-          r.influencer?.display_name?.toLowerCase().includes(s) || 
-          r.card?.title?.toLowerCase().includes(s)
-        )
-      }
-      setRooms(filtered)
-      setTotal(search ? filtered.length : (count ?? 0))
+      // Map the view back to the expected nested structure for the UI
+      const mapped = data.map(r => ({
+        id: r.id,
+        created_at: r.created_at,
+        is_active: r.is_active,
+        brand_id: r.brand_id,
+        influencer_id: r.influencer_id,
+        card_id: r.card_id,
+        brand: { display_name: r.brand_name },
+        influencer: { display_name: r.influencer_name },
+        card: r.card_title ? { title: r.card_title } : undefined
+      })) as Room[]
+      setRooms(mapped)
+      setTotal(count ?? 0)
     }
     setLoading(false)
-  }, [search, filter, page])
+  }, [debouncedSearch, filter, page])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => { 
+    const controller = new AbortController()
+    load(controller.signal)
+    return () => controller.abort()
+  }, [load])
 
   const totalPages = Math.ceil(total / PAGE_SIZE)
 
@@ -173,6 +199,7 @@ export default function RoomsPage() {
                   <th style={{ width: '20%' }}>Brand</th>
                   <th style={{ width: '20%' }}>Influencer</th>
                   <th style={{ width: '15%' }}>Status</th>
+                  <th style={{ width: '15%' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -185,7 +212,7 @@ export default function RoomsPage() {
                       </tr>
                     ))
                   : rooms.length === 0
-                    ? <tr><td colSpan={5}><div className="empty-state"><MessageCircle /><h3>No chat rooms found</h3></div></td></tr>
+                    ? <tr><td colSpan={6}><div className="empty-state"><MessageCircle /><h3>No chat rooms found</h3></div></td></tr>
                     : rooms.map(r => (
                       <tr key={r.id}>
                         <td style={{ fontSize: 12.5, color: 'var(--text-2)' }}>
@@ -217,6 +244,15 @@ export default function RoomsPage() {
                             <span className="badge badge-gray">Closed</span>
                           )}
                         </td>
+                        <td>
+                          <button 
+                            className="btn btn-secondary" 
+                            style={{ padding: '6px 12px', fontSize: '12.5px', gap: '6px', borderRadius: '8px' }}
+                            onClick={() => setSelectedRoom(r)}
+                          >
+                            <Eye size={14} /> View Chat
+                          </button>
+                        </td>
                       </tr>
                     ))
                 }
@@ -238,6 +274,10 @@ export default function RoomsPage() {
       </div>
         </div>
       </div>
+
+      {selectedRoom && (
+        <ChatViewModal room={selectedRoom} onClose={() => setSelectedRoom(null)} />
+      )}
     </div>
   )
 }

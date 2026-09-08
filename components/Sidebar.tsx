@@ -105,9 +105,10 @@ interface SidebarProps {
   onToggle: () => void
   mobileOpen: boolean
   setMobileOpen: (open: boolean) => void
+  onSearchClick?: () => void
 }
 
-export default function Sidebar({ collapsed, onToggle, mobileOpen, setMobileOpen }: SidebarProps) {
+export default function Sidebar({ collapsed, onToggle, mobileOpen, setMobileOpen, onSearchClick }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   
@@ -169,11 +170,14 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, setMobileOpen
 
       {/* Search */}
       <div className="sidebar-search">
-        <div 
+        <div
           className="sidebar-search-inner"
           onClick={() => {
-            if (collapsed) onToggle()
+            if (collapsed) { onToggle(); return }
+            onSearchClick?.()
           }}
+          role="button"
+          tabIndex={0}
         >
           <Search />
           <span className="sidebar-search-text">Search</span>

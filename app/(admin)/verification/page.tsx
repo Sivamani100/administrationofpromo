@@ -10,7 +10,7 @@ type VReq = {
   id: string
   user_id: string
   status: string
-  document_url?: string
+  submitted_links?: string[]
   created_at: string
   profiles?: { display_name: string }
 }
@@ -55,7 +55,7 @@ export default function VerificationPage() {
     })
 
     let q = sb.from('verification_requests')
-      .select('*, profiles!inner(display_name)', { count: 'exact' })
+      .select('*, profiles!verification_requests_user_id_fkey!inner(display_name)', { count: 'exact' })
       
     if (filter !== 'all') q = q.eq('status', filter)
     if (search) q = q.ilike('profiles.display_name', `%${search}%`)
@@ -204,8 +204,8 @@ export default function VerificationPage() {
                             </td>
                             <td style={{ fontSize: 12.5, color: 'var(--text-2)' }}>{new Date(r.created_at).toLocaleDateString()}</td>
                             <td>
-                              {r.document_url
-                                ? <a href={r.document_url} target="_blank" rel="noopener noreferrer"
+                              {r.submitted_links && r.submitted_links.length > 0
+                                ? <a href={r.submitted_links[0]} target="_blank" rel="noopener noreferrer"
                                     className="btn btn-secondary" style={{ padding: '4px 8px', fontSize: '11px', borderRadius: '6px' }}>View Doc</a>
                                 : <span style={{ color: 'var(--text-3)', fontSize: 12 }}>None</span>
                               }

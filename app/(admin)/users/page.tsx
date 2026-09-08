@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase'
 import { Search, RefreshCw, Ban, CheckCircle, Eye, AlertTriangle, Users, Briefcase, UserCircle2, XOctagon, UserX } from 'lucide-react'
 
 import { banUser, unbanUser, verifyUser } from '@/app/actions/admin'
+import UserViewModal from '@/components/admin/UserViewModal'
 
 type User = {
   id: string
@@ -26,6 +27,7 @@ export default function UsersPage() {
   const [page, setPage]         = useState(1)
   const [total, setTotal]       = useState(0)
   const [modal, setModal]       = useState<{ user: User; action: string } | null>(null)
+  const [viewUserId, setViewUserId] = useState<string | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
 
   const [stats, setStats] = useState({
@@ -194,7 +196,13 @@ export default function UsersPage() {
                       <tr key={u.id}>
                         <td>
                           <div className="user-cell">
-                            <div className="user-avatar">{initials(u.display_name)}</div>
+                            <div className="user-avatar" style={{ overflow: 'hidden' }}>
+                              {u.avatar_url ? (
+                                <img src={u.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              ) : (
+                                initials(u.display_name)
+                              )}
+                            </div>
                             <div>
                               <div className="user-name">{u.display_name || 'Anonymous User'}</div>
                               <div className="user-email" style={{ fontFamily: 'monospace', fontSize: 10 }}>{u.id.slice(0,8)}...</div>
@@ -219,9 +227,9 @@ export default function UsersPage() {
                         </td>
                         <td>
                           <div className="td-actions" style={{ display: 'flex', gap: '8px' }}>
-                            <Link href={`/users/${u.id}`} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12.5px', gap: '6px', borderRadius: '8px' }}>
+                            <button onClick={() => setViewUserId(u.id)} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12.5px', gap: '6px', borderRadius: '8px' }}>
                               <Eye size={14} /> View
-                            </Link>
+                            </button>
                             {u.account_status === 'suspended'
                               ? <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12.5px', gap: '6px', borderRadius: '8px' }}
                                   onClick={() => setModal({ user: u, action: 'unban' })}>
@@ -285,6 +293,8 @@ export default function UsersPage() {
           </div>
         </div>
       )}
+
+      {viewUserId && <UserViewModal userId={viewUserId} onClose={() => { setViewUserId(null); load(); }} />}
         </div>
       </div>
     </div>

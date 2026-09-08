@@ -2,33 +2,28 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
-import { Search, RefreshCw, CheckCircle, XCircle, UserX, Clock, CheckCircle2 } from 'lucide-react'
+import { Search, RefreshCw, CheckCircle, UserX, Trash2 } from 'lucide-react'
 
-type DeletionReq = {
+type DeletedUser = {
   id: string
-  user_id: string
-  reason: string
-  status: string
-  created_at: string
-  profiles?: { display_name: string }
+  display_name: string
+  role: string
+  deleted_at: string
 }
 
 const PAGE_SIZE = 12
 
 export default function DeletionsPage() {
-  const [reqs, setReqs]         = useState<DeletionReq[]>([])
+  const [users, setUsers]       = useState<DeletedUser[]>([])
   const [loading, setLoading]   = useState(true)
   const [search, setSearch]     = useState('')
-  const [filter, setFilter]     = useState('pending')
   const [page, setPage]         = useState(1)
   const [total, setTotal]       = useState(0)
-  const [modal, setModal]       = useState<{ req: DeletionReq; action: 'approve' | 'reject' } | null>(null)
+  const [modal, setModal]       = useState<{ user: DeletedUser; action: 'restore' | 'purge' } | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
 
   const [stats, setStats] = useState({
-    total: 0,
-    pending: 0,
-    approved: 0,
+    total: 0
   })
 
   const load = useCallback(async () => {
@@ -36,53 +31,47 @@ export default function DeletionsPage() {
     const sb = createClient()
 
     // Quick Stats
-    const [allRes, pRes, aRes] = await Promise.all([
-      sb.from('deletion_requests').select('*', { count: 'exact', head: true }),
-      sb.from('deletion_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
-      sb.from('deletion_requests').select('*', { count: 'exact', head: true }).eq('status', 'approved')
-    ])
+    const { count: allCount } = await sb.from('profiles').select('*', { count: 'exact', head: true }).not('deleted_at', 'is', null)
     
     setStats({
-      total: allRes.count || 0,
-      pending: pRes.count || 0,
-      approved: aRes.count || 0
+      total: allCount || 0,
     })
 
-    let q = sb.from('deletion_requests')
-      .select('*, profiles!inner(display_name)', { count: 'exact' })
+    let q = sb.from('profiles')
+      .select('id, display_name, role, deleted_at', { count: 'exact' })
+      .not('deleted_at', 'is', null)
       
-    if (filter !== 'all') q = q.eq('status', filter)
-    if (search) q = q.ilike('profiles.display_name', `%${search}%`)
+    if (search) q = q.ilike('display_name', `%${search}%`)
     
-    q = q.order('created_at', { ascending: false })
+    q = q.order('deleted_at', { ascending: false })
          .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1)
          
     const { data, count } = await q
-    if (data) { setReqs(data as DeletionReq[]); setTotal(count ?? 0) }
+    if (data) { setUsers(data as DeletedUser[]); setTotal(count ?? 0) }
     setLoading(false)
-  }, [filter, page, search])
+  }, [page, search])
 
   useEffect(() => { load() }, [load])
 
-  async function doAction(req: DeletionReq, action: 'approve' | 'reject') {
+  async function doAction(user: DeletedUser, action: 'restore' | 'purge') {
     setActionLoading(true)
     const sb = createClient()
-    const newStatus = action === 'approve' ? 'approved' : 'rejected'
-    await sb.from('deletion_requests').update({ status: newStatus }).eq('id', req.id)
-    if (action === 'approve') {
-      // Soft-delete: mark user profile as deleted
-      await sb.from('profiles').update({ is_active: false, deleted_at: new Date().toISOString() }).eq('id', req.user_id)
+    
+    if (action === 'restore') {
+      await sb.from('profiles').update({ deleted_at: null, is_active: true }).eq('id', user.id)
+      await sb.from('audit_logs').insert({ action: 'admin_restored_account', metadata: { target_user_id: user.id } })
+    } else {
+      await sb.rpc('delete_user_account', { p_user_id: user.id })
+      await sb.from('audit_logs').insert({ action: 'admin_purged_account', metadata: { target_user_id: user.id } })
     }
-    await sb.from('audit_logs').insert({ action: `admin_${action}_deletion_request`, metadata: { request_id: req.id, user_id: req.user_id } })
+    
     setModal(null); setActionLoading(false); load()
   }
 
   const totalPages = Math.ceil(total / PAGE_SIZE)
 
   const STATS = [
-    { label: 'Total Requests', value: stats.total.toLocaleString(), icon: <UserX size={16} />, color: '#6366f1', bg: '#ede9fe' },
-    { label: 'Pending', value: stats.pending.toLocaleString(), icon: <Clock size={16} />, color: '#f59e0b', bg: '#fef3c7' },
-    { label: 'Approved & Deleted', value: stats.approved.toLocaleString(), icon: <CheckCircle2 size={16} />, color: '#10b981', bg: '#d1fae5' },
+    { label: 'Accounts Pending Purge', value: stats.total.toLocaleString(), icon: <UserX size={16} />, color: '#ef4444', bg: '#fee2e2' },
   ]
 
   return (
@@ -141,13 +130,6 @@ export default function DeletionsPage() {
           <div className="table-wrap">
             <div className="table-toolbar">
               <div className="table-toolbar-left">
-                <div className="tabs" style={{ marginBottom: 0, borderBottom: 'none', gap: '16px' }}>
-                  {['all', 'pending', 'approved', 'rejected'].map(t => (
-                    <button key={t} className={`tab-btn${filter === t ? ' active' : ''}`} onClick={() => { setFilter(t); setPage(1) }} style={{ padding: '8px 4px', fontSize: '14px', borderBottomWidth: '3px' }}>
-                      {t.charAt(0).toUpperCase() + t.slice(1)}
-                    </button>
-                  ))}
-                </div>
               </div>
               <div className="table-toolbar-right">
                 <div className="search-input-wrap">
@@ -162,52 +144,46 @@ export default function DeletionsPage() {
                 <table>
                   <thead>
                     <tr>
-                      <th style={{ width: '25%' }}>User</th>
-                      <th style={{ width: '30%' }}>Reason</th>
-                      <th style={{ width: '15%' }}>Status</th>
-                      <th style={{ width: '15%' }}>Requested</th>
-                      <th style={{ width: '15%' }}>Actions</th>
+                      <th style={{ width: '35%' }}>User</th>
+                      <th style={{ width: '20%' }}>Role</th>
+                      <th style={{ width: '20%' }}>Deleted At</th>
+                      <th style={{ width: '25%' }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {loading
                       ? Array.from({ length: 5 }).map((_, i) => (
                           <tr key={i}>
-                            {Array.from({ length: 5 }).map((_, j) => (
-                              <td key={j}><div className="skeleton" style={{ height: 16, width: j === 1 ? 200 : 80 }} /></td>
+                            {Array.from({ length: 4 }).map((_, j) => (
+                              <td key={j}><div className="skeleton" style={{ height: 16, width: j === 0 ? 200 : 80 }} /></td>
                             ))}
                           </tr>
                         ))
-                      : reqs.length === 0
-                        ? <tr><td colSpan={5}><div className="empty-state"><UserX /><h3>No deletion requests</h3></div></td></tr>
-                        : reqs.map(r => (
-                          <tr key={r.id}>
+                      : users.length === 0
+                        ? <tr><td colSpan={4}><div className="empty-state"><UserX /><h3>No pending deletions</h3></div></td></tr>
+                        : users.map(u => (
+                          <tr key={u.id}>
                             <td>
-                              <div style={{ fontWeight: 600 }}>{r.profiles?.display_name || 'Anonymous User'}</div>
-                              <div style={{ fontSize: 12, color: 'var(--text-3)' }}>{r.user_id.slice(0,8)}...</div>
-                            </td>
-                            <td style={{ maxWidth: 240 }}>
-                              <div className="truncate" title={r.reason}>{r.reason || 'No reason provided'}</div>
+                              <div style={{ fontWeight: 600 }}>{u.display_name || 'Anonymous User'}</div>
+                              <div style={{ fontSize: 12, color: 'var(--text-3)' }}>{u.id.slice(0,8)}...</div>
                             </td>
                             <td>
-                              <span className={`badge ${r.status === 'pending' ? 'badge-yellow' : r.status === 'approved' ? 'badge-green' : 'badge-red'}`}>
-                                {r.status}
+                              <span className="badge badge-gray" style={{ textTransform: 'capitalize' }}>
+                                {u.role || 'user'}
                               </span>
                             </td>
-                            <td style={{ fontSize: 12.5, color: 'var(--text-2)' }}>{new Date(r.created_at).toLocaleDateString()}</td>
+                            <td style={{ fontSize: 12.5, color: 'var(--text-2)' }}>{new Date(u.deleted_at).toLocaleString()}</td>
                             <td>
-                              {r.status === 'pending' && (
-                                <div className="td-actions" style={{ display: 'flex', gap: '8px' }}>
-                                  <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12.5px', gap: '6px', borderRadius: '8px', color: 'var(--red)' }}
-                                    onClick={() => setModal({ req: r, action: 'approve' })}>
-                                    <CheckCircle size={14} /> Approve
-                                  </button>
-                                  <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12.5px', gap: '6px', borderRadius: '8px' }}
-                                    onClick={() => setModal({ req: r, action: 'reject' })}>
-                                    <XCircle size={14} /> Reject
-                                  </button>
-                                </div>
-                              )}
+                              <div className="td-actions" style={{ display: 'flex', gap: '8px' }}>
+                                <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12.5px', gap: '6px', borderRadius: '8px', color: 'var(--green)' }}
+                                  onClick={() => setModal({ user: u, action: 'restore' })}>
+                                  <CheckCircle size={14} /> Restore
+                                </button>
+                                <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12.5px', gap: '6px', borderRadius: '8px', color: 'var(--red)' }}
+                                  onClick={() => setModal({ user: u, action: 'purge' })}>
+                                  <Trash2 size={14} /> Purge
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         ))
@@ -236,25 +212,25 @@ export default function DeletionsPage() {
           <div className="modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <span className="modal-title">
-                {modal.action === 'approve' ? '⚠️ Approve Deletion' : 'Reject Deletion Request'}
+                {modal.action === 'purge' ? '⚠️ Confirm Permanent Purge' : 'Restore Account'}
               </span>
               <button className="modal-close" onClick={() => setModal(null)}>✕</button>
             </div>
             <div className="modal-body">
-              {modal.action === 'approve'
+              {modal.action === 'purge'
                 ? <><p style={{ marginBottom: 8, color: 'var(--red)', fontWeight: 600 }}>This action is irreversible.</p>
-                    <p>The account of <strong>{modal.req.profiles?.display_name || 'this user'}</strong> will be soft-deleted. Are you sure?</p></>
-                : <p>Reject deletion request from <strong>{modal.req.profiles?.display_name || 'this user'}</strong>?</p>
+                    <p>Are you absolutely sure you want to permanently delete <strong>{modal.user.display_name || 'this user'}</strong>&apos;s account and ALL associated data? This action uses a secure script and cannot be undone.</p></>
+                : <p>Restore account for <strong>{modal.user.display_name || 'this user'}</strong>? They will regain access to the platform.</p>
               }
             </div>
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={() => setModal(null)}>Cancel</button>
               <button
-                className={`btn ${modal.action === 'approve' ? 'btn-danger' : 'btn-primary'}`}
-                onClick={() => doAction(modal.req, modal.action)}
+                className={`btn ${modal.action === 'purge' ? 'btn-danger' : 'btn-primary'}`}
+                onClick={() => doAction(modal.user, modal.action)}
                 disabled={actionLoading}
               >
-                {actionLoading ? <span className="spinner" /> : modal.action === 'approve' ? 'Approve & Delete' : 'Reject'}
+                {actionLoading ? <span className="spinner" /> : modal.action === 'purge' ? 'Confirm Purge' : 'Restore Account'}
               </button>
             </div>
           </div>
