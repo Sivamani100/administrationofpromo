@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard, Users, Megaphone, ShieldCheck, 
@@ -163,7 +164,9 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, setMobileOpen
       {/* Logo */}
       <div className="sidebar-logo">
         <div className="sidebar-logo-left">
-          <div className="sidebar-logo-icon">P</div>
+          <div className="sidebar-logo-icon" style={{ background: 'transparent', padding: 0, overflow: 'hidden' }}>
+            <Image src="/logo.png" alt="Promo" width={32} height={32} style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
+          </div>
           <span className="sidebar-logo-text">Administrator</span>
         </div>
       </div>
