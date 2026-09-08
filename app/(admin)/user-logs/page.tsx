@@ -111,7 +111,7 @@ export default function UserLogsPage() {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ fontSize: 12, color: 'var(--text-3)' }}>Live Overview</span>
-            <button onClick={load} className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: 13, gap: 6, borderRadius: 8 }}>
+            <button onClick={() => load()} className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: 13, gap: 6, borderRadius: 8 }}>
               <RefreshCw size={14} /> Refresh
             </button>
           </div>

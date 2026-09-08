@@ -32,7 +32,7 @@ export default function UserEmailsPage() {
     setLoading(true)
     try {
       const result = await getUserEmails(filter, search, page, PAGE_SIZE)
-      setUsers(result.users)
+      setUsers(result.users ?? [])
       setTotal(result.total)
 
       // Load all-filter totals for stats (only when no filter/search active)
@@ -64,7 +64,7 @@ export default function UserEmailsPage() {
     try {
       const result = await getUserEmails(filter, search, 1, 999999)
       const headers = ['Name', 'Email', 'Role', 'Verified', 'Status', 'Joined']
-      const rows = result.users.map((u: UserEmail) => [
+      const rows = (result.users ?? []).map((u: UserEmail) => [
         u.display_name || '',
         u.email,
         u.role || '',

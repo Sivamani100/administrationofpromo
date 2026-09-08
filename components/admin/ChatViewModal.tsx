@@ -14,7 +14,7 @@ type Message = {
   profiles?: {
     display_name: string
     avatar_url: string
-  }
+  } | null
 }
 
 type ChatViewModalProps = {
@@ -39,7 +39,7 @@ export default function ChatViewModal({ room, onClose }: ChatViewModalProps) {
       .order('created_at', { ascending: true })
 
     if (data) {
-      setMessages(data as Message[])
+      setMessages(data as unknown as Message[])
     }
     setLoading(false)
   }
